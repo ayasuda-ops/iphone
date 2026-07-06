@@ -288,6 +288,7 @@
           <select id="fMeal"><option>朝食</option><option>昼食</option><option>夕食</option><option>間食</option></select>
         </div>
       </div>
+      <div class="note" id="fMealHint" style="display:none">日付は全行に適用されます。区分は行頭に 朝/昼/夕/間 が無い行の既定値になります。</div>
       <div style="height:10px"></div>
       <button class="btn" id="fAdd">食事を記録</button>
     </div>
@@ -776,8 +777,9 @@ document.querySelectorAll('#foodMode button').forEach(b=>b.onclick=()=>{
   document.getElementById('foodText').style.display=m==='text'?'block':'none';
   document.getElementById('foodPhoto').style.display=m==='photo'?'block':'none';
   document.getElementById('foodPaste').style.display=m==='paste'?'block':'none';
-  // paste mode manages its own date/meal per line, so hide the shared row & change button label
-  document.getElementById('fMealRow').style.display=m==='paste'?'none':'flex';
+  // 日付は全モードで指定可能。貼り付けモードでは区分は「行頭プレフィックスが無い行」の既定値
+  document.getElementById('fMealRow').style.display='flex';
+  document.getElementById('fMealHint').style.display=m==='paste'?'block':'none';
   document.getElementById('fAdd').textContent=m==='paste'?'まとめて記録':'食事を記録';
 });
 
