@@ -483,8 +483,9 @@ function metFor(type,intensity,km,min){
   return table[type][intensity];
 }
 function estKcal(type,intensity,km,min){
+  // 厚労省「健康づくりのための身体活動基準」準拠: 1.05 × METs × 体重(kg) × 時間(h)
   const m=metFor(type,intensity,km,min); const w=weightForCalc();
-  return Math.round(m*w*(min/60));
+  return Math.round(1.05*m*w*(min/60));
 }
 
 /* ============================ Charts (SVG) ============================ */
