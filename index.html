@@ -383,7 +383,8 @@
 
     <div class="card">
       <h2>データ管理</h2>
-      <div class="note">データはこの端末のブラウザ内に保存されます。機種変更・バックアップ時はエクスポートしてください。</div>
+      <div class="note">データはこの端末のブラウザ内に保存されます。機種変更・バックアップ時はエクスポートしてください。<br>
+        <b>iCloudに残す手順：</b>「エクスポート」→ 共有シートで「<b>ファイルに保存</b>」→「<b>iCloud Drive</b>」内の決まったフォルダ（例：TriCoach）を選択。毎回同じフォルダに保存すれば、日付付きファイルが自動でたまり iCloud にも同期されます。</div>
       <div style="height:10px"></div>
       <div class="row">
         <button class="btn sec" id="expBtn">エクスポート(JSON)</button>
@@ -966,13 +967,26 @@ document.body.addEventListener('click',async e=>{
 });
 
 /* Export / Import / Wipe */
-function doExport(){
+async function doExport(){
   const data={version:1,weights,foods:foods.map(f=>({...f})),workouts,settings,exportedAt:new Date().toISOString()};
-  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const json=JSON.stringify(data,null,2);
+  const fname='tri-coach-backup-'+todayStr()+'.json';
+  const markDone=()=>{ localStorage.setItem('tc_lastBackup', todayStr()); render(); };
+  // iOS: 共有シート経由で「ファイルに保存→iCloud Drive」やメール/メモに送れる
+  try{
+    const file=new File([json], fname, {type:'application/json'});
+    if(navigator.canShare && navigator.canShare({files:[file]})){
+      await navigator.share({files:[file], title:'Tri Coach バックアップ'});
+      markDone(); toast('保存先を選んで完了'); return;
+    }
+  }catch(err){
+    if(err && err.name==='AbortError'){ return; } // ユーザーがキャンセル: 何もしない
+    // それ以外はダウンロードにフォールバック
+  }
+  const blob=new Blob([json],{type:'application/json'});
   const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
-  a.download='tri-coach-backup-'+todayStr()+'.json'; a.click();
-  localStorage.setItem('tc_lastBackup', todayStr());
-  render(); toast('エクスポートしました');
+  a.download=fname; a.click();
+  markDone(); toast('エクスポートしました');
 }
 document.getElementById('expBtn').onclick=doExport;
 document.getElementById('impBtn').onclick=()=>document.getElementById('impFile').click();
