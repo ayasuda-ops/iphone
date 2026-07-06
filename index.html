@@ -136,6 +136,14 @@
 
   .note{font-size:11.5px; color:var(--mut); line-height:1.5; margin-top:8px}
   .mini{font-size:11px;color:var(--mut)}
+  .banner{border-radius:13px;padding:12px 14px;margin-bottom:13px;font-size:13px;line-height:1.5;
+    display:flex;gap:10px;align-items:flex-start;border:1px solid}
+  .banner.warn{background:color-mix(in srgb,var(--warn) 14%,transparent);border-color:color-mix(in srgb,var(--warn) 45%,transparent);color:var(--txt)}
+  .banner .bi{font-size:18px;flex:none;line-height:1.2}
+  .banner .bb{display:flex;gap:8px;margin-top:8px}
+  .banner button{font-size:12px;font-weight:700;padding:7px 12px;border-radius:9px;border:1px solid var(--line);
+    background:var(--card);color:var(--txt);cursor:pointer;width:auto}
+  .banner button.p{background:var(--acc);color:#fff;border-color:var(--acc)}
   .barrow{display:flex;align-items:center;gap:8px;margin:7px 0;font-size:12px}
   .barrow .lab{width:44px;color:var(--sub);font-weight:700}
   .barrow .track{flex:1;height:9px;background:var(--card2);border-radius:6px;overflow:hidden;border:1px solid var(--line)}
@@ -160,6 +168,7 @@
 
   <!-- ================= DASHBOARD ================= -->
   <section class="view on" id="v-home">
+    <div id="backupBanner" style="display:none"></div>
     <div class="card">
       <h2>本日のカロリー収支</h2>
       <div class="ring">
@@ -539,7 +548,29 @@ function lineChart(el, data, opts={}){
 }
 
 /* ============================ Renders ============================ */
-function render(){ renderHome(); renderWeight(); renderFood(); renderTrain(); renderSet(); renderCountdown(); }
+function render(){ renderHome(); renderWeight(); renderFood(); renderTrain(); renderSet(); renderCountdown(); renderBackupBanner(); }
+
+/* バックアップ促し + ホーム画面アプリの別ストレージ注意 */
+function daysBetween(a,b){ return Math.floor((new Date(b+'T00:00:00')-new Date(a+'T00:00:00'))/86400000); }
+function renderBackupBanner(){
+  const el=document.getElementById('backupBanner'); if(!el) return;
+  const records=weights.length+foods.length+workouts.length;
+  const last=localStorage.getItem('tc_lastBackup');
+  const snooze=localStorage.getItem('tc_bkSnooze');
+  if(records<3){ el.style.display='none'; return; }               // データが少ないうちは出さない
+  if(snooze && daysBetween(snooze,todayStr())<7){ el.style.display='none'; return; }
+  const overdue = !last || daysBetween(last,todayStr())>=14;
+  if(!overdue){ el.style.display='none'; return; }
+  const msg = last ? `前回のバックアップから${daysBetween(last,todayStr())}日経過しています。`
+                   : 'まだ一度もバックアップしていません。';
+  el.className='banner warn'; el.style.display='flex';
+  el.innerHTML=`<div class="bi">💾</div><div>
+    <b>データを守るためにバックアップを</b><br>${msg}機種変更やデータ消失に備えて JSON を保存しましょう。
+    <div class="bb"><button class="p" id="bkExport">今すぐエクスポート</button>
+    <button id="bkSnooze">後で</button></div></div>`;
+  document.getElementById('bkExport').onclick=doExport;
+  document.getElementById('bkSnooze').onclick=()=>{ localStorage.setItem('tc_bkSnooze',todayStr()); renderBackupBanner(); };
+}
 
 function renderCountdown(){
   const el=document.getElementById('countdown');
@@ -935,18 +966,22 @@ document.body.addEventListener('click',async e=>{
 });
 
 /* Export / Import / Wipe */
-document.getElementById('expBtn').onclick=()=>{
+function doExport(){
   const data={version:1,weights,foods:foods.map(f=>({...f})),workouts,settings,exportedAt:new Date().toISOString()};
   const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
   const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
-  a.download='tri-coach-backup.json'; a.click(); toast('エクスポートしました');
-};
+  a.download='tri-coach-backup-'+todayStr()+'.json'; a.click();
+  localStorage.setItem('tc_lastBackup', todayStr());
+  render(); toast('エクスポートしました');
+}
+document.getElementById('expBtn').onclick=doExport;
 document.getElementById('impBtn').onclick=()=>document.getElementById('impFile').click();
 document.getElementById('impFile').onchange=e=>{
   const file=e.target.files[0]; if(!file)return; const r=new FileReader();
   r.onload=()=>{ try{ const d=JSON.parse(r.result);
     if(d.weights)weights=d.weights; if(d.foods)foods=d.foods; if(d.workouts)workouts=d.workouts;
-    if(d.settings)settings=d.settings; saveW();saveF();saveT();saveS(); render(); toast('インポートしました');
+    if(d.settings)settings=d.settings; saveW();saveF();saveT();saveS();
+    localStorage.setItem('tc_lastBackup', todayStr()); render(); toast('インポートしました');
   }catch(err){ toast('読み込み失敗'); } };
   r.readAsText(file);
 };
@@ -959,6 +994,8 @@ document.getElementById('wipeBtn').onclick=()=>{
 
 /* ============================ Init ============================ */
 (async()=>{ await openIDB(); render(); applyTypeUI(); updateEst();
+  // 可能な端末では永続ストレージを要求(iOSの自動削除の対象外になりやすくなる)
+  try{ if(navigator.storage && navigator.storage.persist){ await navigator.storage.persist(); } }catch(e){}
   if('serviceWorker' in navigator){ try{ await navigator.serviceWorker.register('sw.js'); }catch(e){} }
 })();
 </script>
