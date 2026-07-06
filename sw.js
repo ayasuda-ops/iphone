@@ -1,5 +1,5 @@
-/* Tri Coach service worker — offline cache */
-const CACHE = 'tri-coach-v1';
+/* Tri Coach service worker */
+const CACHE = 'tri-coach-v2';
 const ASSETS = [
   './',
   './index.html',
@@ -18,17 +18,39 @@ self.addEventListener('activate', e => {
   );
 });
 
+self.addEventListener('message', e => { if (e.data === 'skipWaiting') self.skipWaiting(); });
+
 self.addEventListener('fetch', e => {
-  const url = new URL(e.request.url);
-  // Never cache API calls (Anthropic estimation)
-  if (url.hostname.includes('anthropic.com')) return;
-  if (e.request.method !== 'GET') return;
+  const req = e.request;
+  const url = new URL(req.url);
+  if (req.method !== 'GET') return;
+  if (url.hostname.includes('anthropic.com')) return;            // API はキャッシュしない
+  if (url.origin !== self.location.origin) return;               // 外部はそのまま
+
+  const isHTML = req.mode === 'navigate' ||
+                 req.destination === 'document' ||
+                 url.pathname.endsWith('.html') ||
+                 url.pathname.endsWith('/');
+
+  if (isHTML) {
+    // ネットワーク優先: オンラインなら常に最新のHTMLを取得、失敗時のみキャッシュ
+    e.respondWith(
+      fetch(req).then(res => {
+        const copy = res.clone();
+        caches.open(CACHE).then(c => c.put(req, copy));
+        return res;
+      }).catch(() => caches.match(req).then(m => m || caches.match('./index.html')))
+    );
+    return;
+  }
+
+  // その他の静的アセット: キャッシュ優先＋バックグラウンド更新(stale-while-revalidate)
   e.respondWith(
-    caches.match(e.request).then(cached => {
-      const net = fetch(e.request).then(res => {
-        if (res && res.status === 200 && url.origin === self.location.origin) {
+    caches.match(req).then(cached => {
+      const net = fetch(req).then(res => {
+        if (res && res.status === 200) {
           const copy = res.clone();
-          caches.open(CACHE).then(c => c.put(e.request, copy));
+          caches.open(CACHE).then(c => c.put(req, copy));
         }
         return res;
       }).catch(() => cached);

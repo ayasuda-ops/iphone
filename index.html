@@ -1012,7 +1012,17 @@ document.getElementById('wipeBtn').onclick=()=>{
 (async()=>{ await openIDB(); render(); applyTypeUI(); updateEst();
   // 可能な端末では永続ストレージを要求(iOSの自動削除の対象外になりやすくなる)
   try{ if(navigator.storage && navigator.storage.persist){ await navigator.storage.persist(); } }catch(e){}
-  if('serviceWorker' in navigator){ try{ await navigator.serviceWorker.register('sw.js'); }catch(e){} }
+  if('serviceWorker' in navigator){
+    // 新しいService Workerが有効化されたら一度だけ自動リロードして最新版に切替
+    let refreshing=false;
+    navigator.serviceWorker.addEventListener('controllerchange',()=>{ if(refreshing)return; refreshing=true; location.reload(); });
+    try{
+      const reg=await navigator.serviceWorker.register('sw.js');
+      reg.addEventListener('updatefound',()=>{ const nw=reg.installing;
+        nw && nw.addEventListener('statechange',()=>{ if(nw.state==='installed' && navigator.serviceWorker.controller){ nw.postMessage('skipWaiting'); } }); });
+      reg.update && reg.update();
+    }catch(e){}
+  }
 })();
 </script>
 </body>
