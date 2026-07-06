@@ -241,6 +241,7 @@
       <div class="seg" id="foodMode">
         <button class="on" data-m="text">文字で入力</button>
         <button data-m="photo">写真で入力</button>
+        <button data-m="paste">🤖 貼り付け</button>
       </div>
 
       <div id="foodText" style="margin-top:13px">
@@ -265,7 +266,14 @@
         <div class="note">写真の自動計算は「設定」で Claude API キーを入れると使えます。キー無しでも写真の添付＋手入力で記録できます。</div>
       </div>
 
-      <div class="row" style="margin-top:12px">
+      <div id="foodPaste" style="margin-top:13px; display:none">
+        <label class="f">Claudeアプリの計算結果を貼り付け</label>
+        <textarea id="pasteBox" placeholder="1行に「品名 カロリー」。例:&#10;親子丼 680&#10;サラダ 50&#10;味噌汁 40&#10;&#10;先頭に 朝/昼/夕/間 を付けると区分も指定できます。"></textarea>
+        <div class="foodres" id="pastePreview"></div>
+        <div class="note">Claudeアプリで料理を撮影し「Tri Coach形式で、品名とkcalだけを1行ずつ出して」と頼むと、この形式で返ってきます。コピーして貼り付け→まとめて記録できます。</div>
+      </div>
+
+      <div class="row" style="margin-top:12px" id="fMealRow">
         <div style="flex:1"><label class="f">日付</label><input type="date" id="fDate"></div>
         <div style="flex:1"><label class="f">区分</label>
           <select id="fMeal"><option>朝食</option><option>昼食</option><option>夕食</option><option>間食</option></select>
@@ -708,8 +716,43 @@ document.getElementById('wAdd').onclick=()=>{
 /* ============================ Food actions ============================ */
 document.querySelectorAll('#foodMode button').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('#foodMode button').forEach(x=>x.classList.remove('on')); b.classList.add('on');
-  document.getElementById('foodText').style.display=b.dataset.m==='text'?'block':'none';
-  document.getElementById('foodPhoto').style.display=b.dataset.m==='photo'?'block':'none';
+  const m=b.dataset.m;
+  document.getElementById('foodText').style.display=m==='text'?'block':'none';
+  document.getElementById('foodPhoto').style.display=m==='photo'?'block':'none';
+  document.getElementById('foodPaste').style.display=m==='paste'?'block':'none';
+  // paste mode manages its own date/meal per line, so hide the shared row & change button label
+  document.getElementById('fMealRow').style.display=m==='paste'?'none':'flex';
+  document.getElementById('fAdd').textContent=m==='paste'?'まとめて記録':'食事を記録';
+});
+
+/* ----- Paste (Claudeアプリの計算結果) parser ----- */
+const MEALMAP={'朝':'朝食','昼':'昼食','夕':'夕食','夜':'夕食','間':'間食','朝食':'朝食','昼食':'昼食','夕食':'夕食','間食':'間食'};
+function parsePaste(text){
+  const out=[];
+  text.split(/\r?\n/).forEach(line=>{
+    let s=line.trim(); if(!s) return;
+    s=s.replace(/^[-*・•\d]+[\.\)]?\s*/,''); // 箇条書き記号や番号を除去
+    let meal=null;
+    const mm=s.match(/^(朝食|昼食|夕食|間食|朝|昼|夕|夜|間)[\s:：]+/);
+    if(mm){ meal=MEALMAP[mm[1]]; s=s.slice(mm[0].length); }
+    // 末尾付近の数値(kcal)を取得
+    const km=s.match(/([\d,]+(?:\.\d+)?)\s*(?:kcal|kカロリー|カロリー|キロカロリー)?\s*$/i);
+    if(!km) return;
+    const kcal=Math.round(parseFloat(km[1].replace(/,/g,'')));
+    if(!kcal) return;
+    let name=s.slice(0,km.index).replace(/[\s:：\-–=＝]+$/,'').trim();
+    if(!name) name='食事';
+    out.push({name,kcal,meal});
+  });
+  return out;
+}
+const pasteBox=document.getElementById('pasteBox'), pastePreview=document.getElementById('pastePreview');
+pasteBox&&(pasteBox.oninput=()=>{
+  const items=parsePaste(pasteBox.value);
+  if(!items.length){ pastePreview.innerHTML=''; return; }
+  const tot=items.reduce((s,i)=>s+i.kcal,0);
+  pastePreview.innerHTML=items.map(i=>`<div class="fr" style="cursor:default"><span>${esc((i.meal?i.meal+' · ':''))+esc(i.name)}</span><span class="kc">${i.kcal} kcal</span></div>`).join('')
+    +`<div class="fr" style="cursor:default;border-color:var(--acc)"><span><b>合計 ${items.length}件</b></span><span class="kc">${tot} kcal</span></div>`;
 });
 const foodQ=document.getElementById('foodQ'), foodRes=document.getElementById('foodRes');
 foodQ.oninput=()=>{
@@ -774,6 +817,14 @@ async function estimateFromImage(dataURL){
 document.getElementById('fAdd').onclick=async()=>{
   const mode=document.querySelector('#foodMode button.on').dataset.m;
   const date=document.getElementById('fDate').value, meal=document.getElementById('fMeal').value;
+  if(mode==='paste'){
+    const items=parsePaste(pasteBox.value);
+    if(!items.length){ toast('「品名 カロリー」の形式で貼り付けてください'); return; }
+    items.forEach(i=>foods.push({id:uid(),date,meal:i.meal||meal,name:i.name,kcal:i.kcal,photoId:null}));
+    saveF(); pasteBox.value=''; pastePreview.innerHTML=''; render();
+    toast(items.length+'件・'+items.reduce((s,i)=>s+i.kcal,0)+'kcalを記録');
+    return;
+  }
   let name,kcal,photoId=null;
   if(mode==='text'){ name=document.getElementById('ftName').value.trim(); kcal=num(document.getElementById('ftKcal').value); }
   else { name=document.getElementById('fpName').value.trim(); kcal=num(document.getElementById('fpKcal').value);
