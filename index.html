@@ -1,0 +1,876 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<meta name="theme-color" content="#0b1220">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Tri Coach">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon.svg">
+<title>Tri Coach — トライアスロン減量・トレーニング管理</title>
+<style>
+  :root{
+    --bg:#0b1220; --bg2:#111c30; --card:#16233c; --card2:#1c2c49;
+    --line:#24344f; --txt:#e8eefc; --sub:#93a4c6; --mut:#64769b;
+    --acc:#4f8cff; --acc2:#22d3a6; --warn:#ff6b6b; --gold:#f5b544;
+    --swim:#38bdf8; --run:#fb923c; --bike:#a78bfa; --strength:#f472b6;
+    --r:16px; --sh:0 6px 24px rgba(0,0,0,.35);
+  }
+  @media (prefers-color-scheme: light){
+    :root{ --bg:#eef2fb; --bg2:#e4ebf7; --card:#ffffff; --card2:#f4f7fe;
+      --line:#dbe3f2; --txt:#0e1a30; --sub:#4a5b7c; --mut:#7286a8; --sh:0 6px 20px rgba(30,50,90,.10);}
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
+  html,body{margin:0}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Segoe UI",Roboto,sans-serif;
+    background:linear-gradient(180deg,var(--bg),var(--bg2)); color:var(--txt);
+    min-height:100vh; padding-bottom:calc(76px + env(safe-area-inset-bottom));
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:520px; margin:0 auto; padding:14px 14px 0}
+  header.app{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:8px 2px 12px}
+  header.app .logo{display:flex; align-items:center; gap:9px; font-weight:800; font-size:18px}
+  header.app .logo .dot{width:26px;height:26px;border-radius:8px;
+    background:linear-gradient(135deg,var(--acc),var(--acc2)); display:grid; place-items:center; color:#fff; font-size:15px}
+  .pill{font-size:12px; color:var(--sub); background:var(--card); border:1px solid var(--line);
+    padding:6px 11px; border-radius:999px; white-space:nowrap}
+  .pill b{color:var(--gold)}
+
+  .card{background:var(--card); border:1px solid var(--line); border-radius:var(--r);
+    padding:15px; margin-bottom:13px; box-shadow:var(--sh)}
+  .card h2{margin:0 0 12px; font-size:14px; letter-spacing:.02em; color:var(--sub); font-weight:700; text-transform:uppercase}
+  .row{display:flex; gap:10px}
+  .grid2{display:grid; grid-template-columns:1fr 1fr; gap:11px}
+  .grid3{display:grid; grid-template-columns:1fr 1fr 1fr; gap:9px}
+
+  .stat{background:var(--card2); border:1px solid var(--line); border-radius:13px; padding:12px}
+  .stat .k{font-size:11px; color:var(--mut); font-weight:600}
+  .stat .v{font-size:22px; font-weight:800; margin-top:3px; line-height:1.1}
+  .stat .v small{font-size:12px; color:var(--sub); font-weight:600}
+  .stat .d{font-size:11px; margin-top:3px; font-weight:600}
+  .up{color:var(--warn)} .down{color:var(--acc2)}
+
+  .ring{display:flex; align-items:center; gap:14px}
+  .ring svg{flex:none}
+  .ring .info .big{font-size:26px; font-weight:800}
+  .ring .info .sub{font-size:12px; color:var(--sub); margin-top:2px}
+  .balance{display:flex; justify-content:space-between; font-size:12px; color:var(--sub); margin-top:11px}
+  .balance b{display:block; font-size:15px; color:var(--txt); margin-top:2px}
+
+  label.f{display:block; font-size:12px; color:var(--sub); margin:0 0 5px; font-weight:600}
+  input,select,textarea,button{font-family:inherit; font-size:16px; color:var(--txt)}
+  input,select,textarea{width:100%; background:var(--card2); border:1px solid var(--line);
+    border-radius:11px; padding:11px 12px; outline:none}
+  input:focus,select:focus,textarea:focus{border-color:var(--acc)}
+  textarea{resize:vertical; min-height:64px}
+  .btn{border:none; border-radius:12px; padding:12px 14px; font-weight:700; cursor:pointer;
+    background:linear-gradient(135deg,var(--acc),#3a6fe0); color:#fff; width:100%}
+  .btn:active{transform:translateY(1px)}
+  .btn.sec{background:var(--card2); color:var(--txt); border:1px solid var(--line)}
+  .btn.ghost{background:transparent; color:var(--sub); border:1px solid var(--line)}
+  .btn.sm{padding:8px 12px; font-size:13px; width:auto}
+  .btn.danger{background:transparent;color:var(--warn);border:1px solid var(--line)}
+
+  .chips{display:flex; flex-wrap:wrap; gap:8px}
+  .chip{font-size:13px; padding:8px 12px; border-radius:999px; background:var(--card2);
+    border:1px solid var(--line); color:var(--sub); cursor:pointer; font-weight:600}
+  .chip.on{background:var(--acc); border-color:var(--acc); color:#fff}
+  .chip.swim.on{background:var(--swim);border-color:var(--swim)}
+  .chip.run.on{background:var(--run);border-color:var(--run)}
+  .chip.bike.on{background:var(--bike);border-color:var(--bike)}
+  .chip.strength.on{background:var(--strength);border-color:var(--strength)}
+
+  .list{display:flex; flex-direction:column; gap:8px}
+  .item{display:flex; align-items:center; gap:11px; background:var(--card2);
+    border:1px solid var(--line); border-radius:12px; padding:10px 12px}
+  .item .ic{width:34px;height:34px;border-radius:10px;flex:none;display:grid;place-items:center;font-size:16px;color:#fff}
+  .item .ic.swim{background:var(--swim)} .item .ic.run{background:var(--run)}
+  .item .ic.bike{background:var(--bike)} .item .ic.strength{background:var(--strength)}
+  .item .ic.food{background:linear-gradient(135deg,var(--acc2),#16a97f)}
+  .item .m{flex:1; min-width:0}
+  .item .m .t{font-weight:700; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+  .item .m .s{font-size:12px; color:var(--sub); margin-top:2px}
+  .item .kc{font-weight:800; font-size:14px; white-space:nowrap}
+  .item .kc small{color:var(--sub); font-weight:600; font-size:11px}
+  .item .x{color:var(--mut); font-size:20px; padding:2px 4px; cursor:pointer; background:none;border:none;width:auto}
+  .item img.th{width:38px;height:38px;border-radius:9px;object-fit:cover;flex:none}
+  .empty{color:var(--mut); font-size:13px; text-align:center; padding:16px 0}
+
+  .day-h{display:flex; justify-content:space-between; align-items:center; font-size:12px;
+    color:var(--sub); font-weight:700; margin:14px 2px 8px}
+  .day-h span.tot{color:var(--txt)}
+
+  nav.tabs{position:fixed; left:0; right:0; bottom:0; z-index:50;
+    background:color-mix(in srgb,var(--card) 92%, transparent); backdrop-filter:blur(14px);
+    border-top:1px solid var(--line); display:flex; padding:8px 6px calc(8px + env(safe-area-inset-bottom))}
+  nav.tabs button{flex:1; background:none; border:none; color:var(--mut); font-size:10px; font-weight:700;
+    display:flex; flex-direction:column; align-items:center; gap:3px; padding:5px 0; cursor:pointer}
+  nav.tabs button .g{font-size:20px; line-height:1}
+  nav.tabs button.on{color:var(--acc)}
+
+  .view{display:none} .view.on{display:block; animation:f .25s ease}
+  @keyframes f{from{opacity:0;transform:translateY(6px)}to{opacity:1}}
+
+  .seg{display:flex; background:var(--card2); border:1px solid var(--line); border-radius:12px; padding:4px; gap:4px}
+  .seg button{flex:1; background:none; border:none; color:var(--sub); font-weight:700; font-size:13px;
+    padding:8px; border-radius:9px; cursor:pointer}
+  .seg button.on{background:var(--acc); color:#fff}
+
+  .modal{position:fixed; inset:0; z-index:100; background:rgba(4,8,18,.6); display:none;
+    align-items:flex-end; justify-content:center}
+  .modal.on{display:flex}
+  .sheet{background:var(--card); border-radius:20px 20px 0 0; width:100%; max-width:520px;
+    padding:18px 16px calc(18px + env(safe-area-inset-bottom)); max-height:88vh; overflow:auto;
+    border:1px solid var(--line); animation:up .28s ease}
+  @keyframes up{from{transform:translateY(100%)}to{transform:translateY(0)}}
+  .sheet h3{margin:2px 0 14px; font-size:17px}
+  .sheet .grab{width:38px;height:4px;background:var(--line);border-radius:2px;margin:0 auto 14px}
+
+  .foodres{max-height:200px; overflow:auto; margin-top:8px; display:flex; flex-direction:column; gap:6px}
+  .foodres .fr{display:flex; justify-content:space-between; align-items:center; padding:9px 11px;
+    background:var(--card2); border:1px solid var(--line); border-radius:10px; cursor:pointer; font-size:14px}
+  .foodres .fr .kc{color:var(--sub); font-size:12px; font-weight:700}
+
+  .note{font-size:11.5px; color:var(--mut); line-height:1.5; margin-top:8px}
+  .mini{font-size:11px;color:var(--mut)}
+  .barrow{display:flex;align-items:center;gap:8px;margin:7px 0;font-size:12px}
+  .barrow .lab{width:44px;color:var(--sub);font-weight:700}
+  .barrow .track{flex:1;height:9px;background:var(--card2);border-radius:6px;overflow:hidden;border:1px solid var(--line)}
+  .barrow .fill{height:100%;border-radius:6px}
+  .barrow .val{width:66px;text-align:right;color:var(--sub);font-weight:700}
+  .spin{display:inline-block;width:15px;height:15px;border:2px solid var(--line);border-top-color:var(--acc);
+    border-radius:50%;animation:sp .7s linear infinite;vertical-align:-2px}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  .toast{position:fixed;left:50%;bottom:96px;transform:translateX(-50%);background:var(--card2);
+    border:1px solid var(--line);color:var(--txt);padding:10px 16px;border-radius:12px;font-size:13px;font-weight:600;
+    box-shadow:var(--sh);z-index:200;opacity:0;transition:.25s;pointer-events:none}
+  .toast.on{opacity:1;bottom:104px}
+  a{color:var(--acc)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="app">
+    <div class="logo"><span class="dot">🏊</span> Tri Coach</div>
+    <div class="pill" id="countdown">レース設定なし</div>
+  </header>
+
+  <!-- ================= DASHBOARD ================= -->
+  <section class="view on" id="v-home">
+    <div class="card">
+      <h2>本日のカロリー収支</h2>
+      <div class="ring">
+        <svg width="96" height="96" viewBox="0 0 96 96">
+          <circle cx="48" cy="48" r="40" fill="none" stroke="var(--line)" stroke-width="10"/>
+          <circle id="ringArc" cx="48" cy="48" r="40" fill="none" stroke="var(--acc2)" stroke-width="10"
+            stroke-linecap="round" stroke-dasharray="251" stroke-dashoffset="251" transform="rotate(-90 48 48)"/>
+        </svg>
+        <div class="info">
+          <div class="big" id="netKcal">—</div>
+          <div class="sub" id="netLabel">目標に対する収支</div>
+        </div>
+      </div>
+      <div class="balance">
+        <div>摂取<b id="inKcal">0</b></div>
+        <div>基礎+活動<b id="tdeeKcal">0</b></div>
+        <div>運動<b id="exKcal">0</b></div>
+        <div>目標収支<b id="goalKcal">0</b></div>
+      </div>
+    </div>
+
+    <div class="grid2">
+      <div class="stat">
+        <div class="k">現在の体重</div>
+        <div class="v" id="curW">— <small>kg</small></div>
+        <div class="d" id="curWd">記録なし</div>
+      </div>
+      <div class="stat">
+        <div class="k">目標まで</div>
+        <div class="v" id="toGoal">— <small>kg</small></div>
+        <div class="d" id="toGoalD">目標未設定</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>体重の推移</h2>
+      <div id="wchart"></div>
+      <div class="mini" id="wtrend" style="margin-top:8px"></div>
+    </div>
+
+    <div class="card">
+      <h2>今週のトレーニング</h2>
+      <div id="weekTrain"></div>
+    </div>
+  </section>
+
+  <!-- ================= WEIGHT ================= -->
+  <section class="view" id="v-weight">
+    <div class="card">
+      <h2>体重を記録</h2>
+      <div class="row">
+        <div style="flex:1">
+          <label class="f">日付</label>
+          <input type="date" id="wDate">
+        </div>
+        <div style="flex:1">
+          <label class="f">体重 (kg)</label>
+          <input type="number" inputmode="decimal" step="0.1" id="wKg" placeholder="例 68.4">
+        </div>
+      </div>
+      <div style="height:10px"></div>
+      <button class="btn" id="wAdd">記録する</button>
+    </div>
+    <div class="card">
+      <h2>推移グラフ</h2>
+      <div id="wchart2"></div>
+      <div class="mini" id="wstats" style="margin-top:10px"></div>
+    </div>
+    <div class="card">
+      <h2>履歴</h2>
+      <div class="list" id="wList"></div>
+    </div>
+  </section>
+
+  <!-- ================= FOOD ================= -->
+  <section class="view" id="v-food">
+    <div class="card">
+      <h2>食事を記録</h2>
+      <div class="seg" id="foodMode">
+        <button class="on" data-m="text">文字で入力</button>
+        <button data-m="photo">写真で入力</button>
+      </div>
+
+      <div id="foodText" style="margin-top:13px">
+        <label class="f">食品を検索 / 入力</label>
+        <input id="foodQ" placeholder="例: ご飯 / 鶏むね肉 / ラーメン">
+        <div class="foodres" id="foodRes"></div>
+        <div class="grid2" style="margin-top:10px">
+          <div><label class="f">品名</label><input id="ftName" placeholder="品名"></div>
+          <div><label class="f">カロリー(kcal)</label><input id="ftKcal" type="number" inputmode="numeric" placeholder="kcal"></div>
+        </div>
+      </div>
+
+      <div id="foodPhoto" style="margin-top:13px; display:none">
+        <label class="f">写真を選択(料理を撮影)</label>
+        <input type="file" accept="image/*" id="fPhoto">
+        <div id="fPreview" style="margin-top:10px"></div>
+        <button class="btn sec" id="fAI" style="margin-top:10px">🤖 AIでカロリーを推定</button>
+        <div class="grid2" style="margin-top:10px">
+          <div><label class="f">品名</label><input id="fpName" placeholder="AI推定 or 手入力"></div>
+          <div><label class="f">カロリー(kcal)</label><input id="fpKcal" type="number" inputmode="numeric" placeholder="kcal"></div>
+        </div>
+        <div class="note">写真の自動計算は「設定」で Claude API キーを入れると使えます。キー無しでも写真の添付＋手入力で記録できます。</div>
+      </div>
+
+      <div class="row" style="margin-top:12px">
+        <div style="flex:1"><label class="f">日付</label><input type="date" id="fDate"></div>
+        <div style="flex:1"><label class="f">区分</label>
+          <select id="fMeal"><option>朝食</option><option>昼食</option><option>夕食</option><option>間食</option></select>
+        </div>
+      </div>
+      <div style="height:10px"></div>
+      <button class="btn" id="fAdd">食事を記録</button>
+    </div>
+
+    <div class="card">
+      <h2>食事ログ</h2>
+      <div id="fList"></div>
+    </div>
+  </section>
+
+  <!-- ================= TRAINING ================= -->
+  <section class="view" id="v-train">
+    <div class="card">
+      <h2>トレーニングを記録</h2>
+      <label class="f">種目</label>
+      <div class="chips" id="tType">
+        <div class="chip swim on" data-t="swim">🏊 スイム</div>
+        <div class="chip run" data-t="run">🏃 ラン</div>
+        <div class="chip bike" data-t="bike">🚴 バイク</div>
+        <div class="chip strength" data-t="strength">💪 筋トレ</div>
+      </div>
+      <div class="grid2" style="margin-top:12px">
+        <div><label class="f">時間(分)</label><input id="tMin" type="number" inputmode="numeric" placeholder="45"></div>
+        <div id="tDistWrap"><label class="f">距離(km)</label><input id="tKm" type="number" inputmode="decimal" step="0.1" placeholder="任意"></div>
+      </div>
+      <label class="f" style="margin-top:12px">強度</label>
+      <div class="seg" id="tInt">
+        <button data-i="easy">イージー</button>
+        <button class="on" data-i="mod">ミドル</button>
+        <button data-i="hard">ハード</button>
+      </div>
+      <div class="row" style="margin-top:12px">
+        <div style="flex:1"><label class="f">日付</label><input type="date" id="tDate"></div>
+        <div style="flex:1"><label class="f">消費kcal(自動)</label><input id="tKcal" type="number" inputmode="numeric" placeholder="自動計算"></div>
+      </div>
+      <label class="f" style="margin-top:12px">メモ</label>
+      <input id="tNote" placeholder="任意（コース・感覚など）">
+      <div style="height:12px"></div>
+      <button class="btn" id="tAdd">トレーニングを記録</button>
+      <div class="note" id="tEstNote"></div>
+    </div>
+
+    <div class="card">
+      <h2>今週のサマリー</h2>
+      <div id="tSummary"></div>
+    </div>
+    <div class="card">
+      <h2>トレーニングログ</h2>
+      <div id="tList"></div>
+    </div>
+  </section>
+
+  <!-- ================= SETTINGS ================= -->
+  <section class="view" id="v-set">
+    <div class="card">
+      <h2>プロフィール</h2>
+      <div class="grid2">
+        <div><label class="f">性別</label>
+          <select id="sSex"><option value="m">男性</option><option value="f">女性</option></select></div>
+        <div><label class="f">年齢</label><input id="sAge" type="number" inputmode="numeric" placeholder="35"></div>
+        <div><label class="f">身長(cm)</label><input id="sH" type="number" inputmode="decimal" placeholder="172"></div>
+        <div><label class="f">目標体重(kg)</label><input id="sTarget" type="number" inputmode="decimal" step="0.1" placeholder="65"></div>
+      </div>
+      <label class="f" style="margin-top:12px">日常の活動量</label>
+      <select id="sAct">
+        <option value="1.2">座り仕事中心(運動別)</option>
+        <option value="1.375" selected>軽い活動</option>
+        <option value="1.55">中程度</option>
+        <option value="1.725">高い</option>
+      </select>
+      <label class="f" style="margin-top:12px">レース日</label>
+      <input type="date" id="sRace">
+      <label class="f" style="margin-top:12px">1日の目標カロリー収支(減量ペース)</label>
+      <select id="sDeficit">
+        <option value="0">維持(±0)</option>
+        <option value="300">-300 kcal/日 (穏やか ≒ -1.2kg/月)</option>
+        <option value="500" selected>-500 kcal/日 (標準 ≒ -2kg/月)</option>
+        <option value="750">-750 kcal/日 (積極的 ≒ -3kg/月)</option>
+      </select>
+      <div style="height:12px"></div>
+      <button class="btn" id="sSave">保存</button>
+      <div class="note" id="bmrNote"></div>
+    </div>
+
+    <div class="card">
+      <h2>写真カロリー推定 (任意)</h2>
+      <label class="f">Claude API キー</label>
+      <input id="sKey" type="password" placeholder="sk-ant-...">
+      <div class="note">キーは端末内(localStorage)にのみ保存され、推定時に api.anthropic.com へ直接送信されます。個人利用向けの任意機能です。空欄なら写真は添付＋手入力になります。</div>
+      <div style="height:10px"></div>
+      <button class="btn sec" id="sSaveKey">キーを保存</button>
+    </div>
+
+    <div class="card">
+      <h2>データ管理</h2>
+      <div class="note">データはこの端末のブラウザ内に保存されます。機種変更・バックアップ時はエクスポートしてください。</div>
+      <div style="height:10px"></div>
+      <div class="row">
+        <button class="btn sec" id="expBtn">エクスポート(JSON)</button>
+        <button class="btn sec" id="impBtn">インポート</button>
+      </div>
+      <input type="file" id="impFile" accept="application/json" style="display:none">
+      <div style="height:10px"></div>
+      <button class="btn danger" id="wipeBtn">全データを削除</button>
+    </div>
+    <div class="note" style="text-align:center;padding:10px 0 4px">
+      iPhoneでの使い方: Safariで開く → 共有 → 「ホーム画面に追加」でアプリのように使えます。
+    </div>
+  </section>
+</div>
+
+<nav class="tabs">
+  <button class="on" data-v="home"><span class="g">📊</span>ホーム</button>
+  <button data-v="weight"><span class="g">⚖️</span>体重</button>
+  <button data-v="food"><span class="g">🍽️</span>食事</button>
+  <button data-v="train"><span class="g">🏋️</span>練習</button>
+  <button data-v="set"><span class="g">⚙️</span>設定</button>
+</nav>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============================ Storage ============================ */
+const LS = {
+  get(k,d){ try{ const v=localStorage.getItem(k); return v==null?d:JSON.parse(v);}catch(e){return d;} },
+  set(k,v){ localStorage.setItem(k, JSON.stringify(v)); }
+};
+const KEY={ w:'tc_weights', f:'tc_foods', t:'tc_workouts', s:'tc_settings', api:'tc_apikey' };
+
+let weights = LS.get(KEY.w, []);
+let foods   = LS.get(KEY.f, []);
+let workouts= LS.get(KEY.t, []);
+let settings= LS.get(KEY.s, {sex:'m',age:35,h:172,target:65,act:'1.375',race:'',deficit:500});
+let apiKey  = localStorage.getItem(KEY.api) || '';
+
+const saveW=()=>LS.set(KEY.w,weights);
+const saveF=()=>LS.set(KEY.f,foods);
+const saveT=()=>LS.set(KEY.t,workouts);
+const saveS=()=>LS.set(KEY.s,settings);
+
+/* Photo storage in IndexedDB (dataURL strings keyed by id) */
+let idb=null;
+const openIDB=()=>new Promise((res)=>{
+  const r=indexedDB.open('tc_photos',1);
+  r.onupgradeneeded=e=>e.target.result.createObjectStore('ph');
+  r.onsuccess=e=>{idb=e.target.result;res(idb);};
+  r.onerror=()=>res(null);
+});
+const putPhoto=(id,dataURL)=>new Promise(r=>{ if(!idb)return r();
+  const tx=idb.transaction('ph','readwrite'); tx.objectStore('ph').put(dataURL,id); tx.oncomplete=()=>r(); tx.onerror=()=>r(); });
+const getPhoto=(id)=>new Promise(r=>{ if(!idb||!id)return r(null);
+  const tx=idb.transaction('ph','readonly'); const q=tx.objectStore('ph').get(id); q.onsuccess=()=>r(q.result||null); q.onerror=()=>r(null); });
+const delPhoto=(id)=>new Promise(r=>{ if(!idb||!id)return r();
+  const tx=idb.transaction('ph','readwrite'); tx.objectStore('ph').delete(id); tx.oncomplete=()=>r(); tx.onerror=()=>r(); });
+
+/* ============================ Utils ============================ */
+const uid=()=>Math.random().toString(36).slice(2,10);
+const todayStr=()=>{const d=new Date();return d.toISOString().slice(0,10);};
+const fmtDate=s=>{const d=new Date(s+'T00:00:00');return `${d.getMonth()+1}/${d.getDate()}(${'日月火水木金土'[d.getDay()]})`;};
+const toast=(m)=>{const t=document.getElementById('toast');t.textContent=m;t.classList.add('on');clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove('on'),1600);};
+const num=v=>{const n=parseFloat(v);return isNaN(n)?0:n;};
+
+function latestWeight(){ if(!weights.length)return null;
+  return [...weights].sort((a,b)=>b.date.localeCompare(a.date))[0].kg; }
+function weightForCalc(){ return latestWeight() || 70; }
+
+/* Mifflin-St Jeor BMR */
+function bmr(){ const w=weightForCalc(), h=num(settings.h), a=num(settings.age);
+  const base=10*w+6.25*h-5*a; return Math.round(settings.sex==='m'?base+5:base-161); }
+function tdee(){ return Math.round(bmr()*parseFloat(settings.act||1.375)); }
+
+/* ============================ Food DB ============================ */
+const FOODDB=[
+  ["ご飯 茶碗1杯(150g)",234],["ご飯 大盛(250g)",390],["食パン 6枚切1枚",149],["おにぎり1個",180],
+  ["うどん1玉(かけ)",320],["そば(かけ)",300],["ラーメン1杯",500],["チャーハン1皿",640],
+  ["パスタ(ミートソース)",600],["カレーライス",700],["牛丼 並",650],["親子丼",680],
+  ["鶏むね肉(皮なし)100g",108],["鶏もも肉100g",200],["サラダチキン1個",105],["卵1個",76],
+  ["納豆1パック",100],["豆腐 半丁(150g)",110],["焼き魚(鮭1切)",200],["刺身 盛合せ",180],
+  ["とんかつ",450],["唐揚げ1個",70],["ハンバーグ",420],["餃子5個",300],["ステーキ150g",380],
+  ["味噌汁1杯",40],["サラダ(ノンオイル)",50],["野菜炒め",180],["ブロッコリー100g",33],
+  ["バナナ1本",86],["りんご1個",138],["みかん1個",40],["ヨーグルト無糖100g",62],
+  ["牛乳 200ml",134],["プロテイン1杯",120],["オートミール40g",150],["ゆで卵1個",76],
+  ["おにぎり(ツナマヨ)",240],["菓子パン1個",300],["カップ麺1個",350],["コンビニ弁当",700],
+  ["ビール 350ml",140],["ハイボール1杯",70],["ワイン グラス",90],["日本酒1合",190],
+  ["コーラ 500ml",225],["スポーツドリンク500ml",125],["ブラックコーヒー",5],["カフェラテ",90],
+  ["ポテトチップス1袋",336],["チョコ 板1/2",280],["アイス1個",180],["どら焼き1個",210],
+  ["エナジージェル1個",110],["バナナ+はちみつ",130],["ミックスナッツ30g",180],["プロテインバー1本",200]
+];
+
+/* ============================ MET ============================ */
+function metFor(type,intensity,km,min){
+  if(type==='run' && km>0 && min>0){ const sp=km/(min/60); // km/h
+    if(sp<8)return 8.3; if(sp<9.7)return 9.8; if(sp<11.3)return 11.5; if(sp<12.9)return 12.8; return 14.5; }
+  if(type==='bike' && km>0 && min>0){ const sp=km/(min/60);
+    if(sp<16)return 4; if(sp<19)return 6.8; if(sp<22)return 8; if(sp<25)return 10; return 12; }
+  const table={
+    swim:{easy:6, mod:8.3, hard:9.8},
+    run:{easy:8.3, mod:9.8, hard:11.5},
+    bike:{easy:4, mod:8, hard:10},
+    strength:{easy:3.5, mod:5, hard:6}
+  };
+  return table[type][intensity];
+}
+function estKcal(type,intensity,km,min){
+  const m=metFor(type,intensity,km,min); const w=weightForCalc();
+  return Math.round(m*w*(min/60));
+}
+
+/* ============================ Charts (SVG) ============================ */
+function lineChart(el, data, opts={}){
+  // data: [{date, kg}] ascending
+  const W=el.clientWidth||480, H=opts.h||150, pad={l:34,r:10,t:12,b:22};
+  if(data.length<1){ el.innerHTML='<div class="empty">まだ記録がありません</div>'; return; }
+  const xs=data.map(d=>new Date(d.date+'T00:00:00').getTime());
+  const ys=data.map(d=>d.kg);
+  let minY=Math.min(...ys), maxY=Math.max(...ys);
+  if(opts.target!=null){ minY=Math.min(minY,opts.target); maxY=Math.max(maxY,opts.target); }
+  const span=(maxY-minY)||1; minY-=span*0.15; maxY+=span*0.15;
+  const minX=Math.min(...xs), maxX=Math.max(...xs)|| (minX+1);
+  const spanX=(maxX-minX)||1;
+  const px=t=>pad.l+(t-minX)/spanX*(W-pad.l-pad.r);
+  const py=v=>pad.t+(1-(v-minY)/(maxY-minY))*(H-pad.t-pad.b);
+  let path='', area='';
+  data.forEach((d,i)=>{ const x=px(xs[i]), y=py(d.kg); path+=(i?'L':'M')+x.toFixed(1)+' '+y.toFixed(1)+' '; });
+  area=path+`L${px(maxX).toFixed(1)} ${py(minY).toFixed(1)} L${px(minX).toFixed(1)} ${py(minY).toFixed(1)} Z`;
+  const gy=[minY+ (maxY-minY)*0.2, (minY+maxY)/2, maxY-(maxY-minY)*0.2].map(v=>({v,y:py(v)}));
+  let grid=gy.map(g=>`<line x1="${pad.l}" y1="${g.y.toFixed(1)}" x2="${W-pad.r}" y2="${g.y.toFixed(1)}" stroke="var(--line)" stroke-width="1"/>
+    <text x="4" y="${(g.y+3).toFixed(1)}" fill="var(--mut)" font-size="9">${g.v.toFixed(1)}</text>`).join('');
+  let tline='';
+  if(opts.target!=null){ const ty=py(opts.target);
+    tline=`<line x1="${pad.l}" y1="${ty.toFixed(1)}" x2="${W-pad.r}" y2="${ty.toFixed(1)}" stroke="var(--gold)" stroke-width="1.5" stroke-dasharray="4 4"/>
+      <text x="${W-pad.r}" y="${(ty-4).toFixed(1)}" fill="var(--gold)" font-size="9" text-anchor="end">目標 ${opts.target}</text>`; }
+  const dots=data.map((d,i)=>`<circle cx="${px(xs[i]).toFixed(1)}" cy="${py(d.kg).toFixed(1)}" r="${i===data.length-1?3.5:2.2}" fill="var(--acc)"/>`).join('');
+  const xl=`<text x="${pad.l}" y="${H-6}" fill="var(--mut)" font-size="9">${fmtDate(data[0].date).split('(')[0]}</text>
+    <text x="${W-pad.r}" y="${H-6}" fill="var(--mut)" font-size="9" text-anchor="end">${fmtDate(data[data.length-1].date).split('(')[0]}</text>`;
+  el.innerHTML=`<svg width="100%" height="${H}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="display:block">
+    <defs><linearGradient id="ag" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="var(--acc)" stop-opacity="0.28"/><stop offset="1" stop-color="var(--acc)" stop-opacity="0"/>
+    </linearGradient></defs>
+    ${grid}<path d="${area}" fill="url(#ag)"/>${tline}
+    <path d="${path}" fill="none" stroke="var(--acc)" stroke-width="2.2" stroke-linejoin="round"/>${dots}${xl}</svg>`;
+}
+
+/* ============================ Renders ============================ */
+function render(){ renderHome(); renderWeight(); renderFood(); renderTrain(); renderSet(); renderCountdown(); }
+
+function renderCountdown(){
+  const el=document.getElementById('countdown');
+  if(!settings.race){ el.textContent='レース未設定'; return; }
+  const d=Math.ceil((new Date(settings.race+'T00:00:00')-new Date(todayStr()+'T00:00:00'))/86400000);
+  el.innerHTML= d>=0? `レースまで <b>${d}</b> 日` : `レース終了`;
+}
+
+function dayKcalIn(date){ return foods.filter(f=>f.date===date).reduce((s,f)=>s+num(f.kcal),0); }
+function dayKcalEx(date){ return workouts.filter(w=>w.date===date).reduce((s,w)=>s+num(w.kcal),0); }
+
+function renderHome(){
+  const d=todayStr();
+  const kin=dayKcalIn(d), kex=dayKcalEx(d), maint=tdee();
+  const goalDeficit=num(settings.deficit);
+  const net = kin - (maint + kex); // 実収支 (マイナスほど減量)
+  const targetNet = -goalDeficit;
+  document.getElementById('inKcal').textContent=kin;
+  document.getElementById('tdeeKcal').textContent=maint;
+  document.getElementById('exKcal').textContent=kex;
+  document.getElementById('goalKcal').textContent=(-goalDeficit);
+  const nEl=document.getElementById('netKcal');
+  nEl.textContent=(net>0?'+':'')+net;
+  nEl.style.color = net<=targetNet? 'var(--acc2)' : (net<=0? 'var(--gold)':'var(--warn)');
+  document.getElementById('netLabel').textContent = net<=targetNet? '目標達成ペース🔥' : (net<=0?'減量中(目標未達)':'オーバー');
+  // ring: progress of allowed intake budget
+  const budget = maint + kex - goalDeficit; // 食べてよい上限
+  const frac = budget>0? Math.min(kin/budget,1) : 1;
+  const arc=document.getElementById('ringArc'); const C=251;
+  arc.style.strokeDashoffset = C*(1-frac);
+  arc.style.stroke = kin>budget? 'var(--warn)':'var(--acc2)';
+
+  const cw=latestWeight();
+  document.getElementById('curW').innerHTML = cw? `${cw.toFixed(1)} <small>kg</small>`:'— <small>kg</small>';
+  if(weights.length>=2){ const s=[...weights].sort((a,b)=>a.date.localeCompare(b.date));
+    const diff=s[s.length-1].kg-s[0].kg;
+    document.getElementById('curWd').innerHTML=`<span class="${diff<=0?'down':'up'}">${diff>0?'▲':'▼'} ${Math.abs(diff).toFixed(1)}kg (開始比)</span>`;
+  } else document.getElementById('curWd').textContent='記録を増やしましょう';
+
+  const tgt=num(settings.target);
+  if(cw&&tgt){ const rem=cw-tgt;
+    document.getElementById('toGoal').innerHTML=`${rem>0?rem.toFixed(1):'達成'} <small>${rem>0?'kg':''}</small>`;
+    let d2='';
+    if(settings.race){ const days=Math.ceil((new Date(settings.race+'T00:00:00')-new Date(todayStr()+'T00:00:00'))/86400000);
+      if(days>0&&rem>0){ const perWk=(rem/days*7); d2=`必要ペース ${perWk.toFixed(2)}kg/週`; } }
+    document.getElementById('toGoalD').textContent=rem<=0?'🎉 目標達成！':(d2||'目標に向けて');
+  } else { document.getElementById('toGoal').innerHTML='— <small>kg</small>'; document.getElementById('toGoalD').textContent='目標体重を設定'; }
+
+  const sorted=[...weights].sort((a,b)=>a.date.localeCompare(b.date));
+  lineChart(document.getElementById('wchart'), sorted, {target: tgt||null, h:150});
+  const wt=document.getElementById('wtrend');
+  if(sorted.length>=2){ const last7=sorted.slice(-7);
+    const chg=last7[last7.length-1].kg-last7[0].kg;
+    wt.innerHTML=`直近 ${last7.length} 記録: <b style="color:${chg<=0?'var(--acc2)':'var(--warn)'}">${chg>0?'+':''}${chg.toFixed(1)}kg</b>`;
+  } else wt.textContent='';
+
+  // week training
+  const wk=weekWorkouts();
+  const el=document.getElementById('weekTrain');
+  if(!wk.length){ el.innerHTML='<div class="empty">今週の記録はまだありません</div>'; return; }
+  const by={swim:0,run:0,bike:0,strength:0}, cal={swim:0,run:0,bike:0,strength:0};
+  wk.forEach(w=>{by[w.type]+=num(w.min); cal[w.type]+=num(w.kcal);});
+  const names={swim:'🏊 スイム',run:'🏃 ラン',bike:'🚴 バイク',strength:'💪 筋トレ'};
+  const cols={swim:'var(--swim)',run:'var(--run)',bike:'var(--bike)',strength:'var(--strength)'};
+  const maxM=Math.max(...Object.values(by),1);
+  el.innerHTML=Object.keys(names).map(t=>`
+    <div class="barrow"><div class="lab">${names[t].split(' ')[0]}</div>
+    <div class="track"><div class="fill" style="width:${(by[t]/maxM*100)}%;background:${cols[t]}"></div></div>
+    <div class="val">${by[t]}分</div></div>`).join('')
+    + `<div class="mini" style="margin-top:6px">今週合計 ${wk.reduce((s,w)=>s+num(w.min),0)}分 / ${wk.reduce((s,w)=>s+num(w.kcal),0)}kcal 消費</div>`;
+}
+
+function weekWorkouts(){ const now=new Date(todayStr()+'T00:00:00'); const day=(now.getDay()+6)%7;
+  const mon=new Date(now); mon.setDate(now.getDate()-day); const monS=mon.toISOString().slice(0,10);
+  return workouts.filter(w=>w.date>=monS); }
+
+/* -------- Weight -------- */
+function renderWeight(){
+  const sorted=[...weights].sort((a,b)=>a.date.localeCompare(b.date));
+  lineChart(document.getElementById('wchart2'), sorted, {target:num(settings.target)||null, h:170});
+  const st=document.getElementById('wstats');
+  if(sorted.length){ const mn=Math.min(...sorted.map(d=>d.kg)), mx=Math.max(...sorted.map(d=>d.kg));
+    const first=sorted[0].kg, last=sorted[sorted.length-1].kg;
+    st.innerHTML=`開始 ${first.toFixed(1)} → 現在 ${last.toFixed(1)} kg / 最軽 ${mn.toFixed(1)} ・ 最重 ${mx.toFixed(1)} / 変化 <b style="color:${last-first<=0?'var(--acc2)':'var(--warn)'}">${last-first>0?'+':''}${(last-first).toFixed(1)}kg</b>`;
+  } else st.textContent='';
+  const list=document.getElementById('wList');
+  const desc=[...weights].sort((a,b)=>b.date.localeCompare(a.date));
+  if(!desc.length){ list.innerHTML='<div class="empty">記録がありません</div>'; return; }
+  list.innerHTML=desc.map((w,i)=>{
+    const prev=desc[i+1]; const diff=prev?(w.kg-prev.kg):0;
+    return `<div class="item"><div class="ic food">⚖️</div>
+      <div class="m"><div class="t">${w.kg.toFixed(1)} kg</div><div class="s">${fmtDate(w.date)}</div></div>
+      <div class="kc">${prev?`<span class="${diff<=0?'down':'up'}">${diff>0?'+':''}${diff.toFixed(1)}</span>`:''}</div>
+      <button class="x" data-del-w="${w.id}">×</button></div>`;
+  }).join('');
+}
+
+/* -------- Food -------- */
+function groupByDate(arr){ const g={}; arr.forEach(x=>{(g[x.date]=g[x.date]||[]).push(x);});
+  return Object.keys(g).sort((a,b)=>b.localeCompare(a)).map(d=>({date:d,items:g[d]})); }
+
+async function renderFood(){
+  const list=document.getElementById('fList');
+  const groups=groupByDate(foods);
+  if(!groups.length){ list.innerHTML='<div class="empty">まだ食事の記録がありません</div>'; return; }
+  let html='';
+  for(const g of groups){
+    const tot=g.items.reduce((s,f)=>s+num(f.kcal),0);
+    html+=`<div class="day-h"><span>${fmtDate(g.date)}</span><span class="tot">${tot} kcal</span></div><div class="list">`;
+    for(const f of g.items){
+      html+=`<div class="item"><div class="ic food">${f.meal==='朝食'?'🌅':f.meal==='昼食'?'☀️':f.meal==='夕食'?'🌙':'🍩'}</div>
+        <div class="m"><div class="t">${esc(f.name)}</div><div class="s">${f.meal||''}${f.photoId?' · 📷':''}</div></div>
+        <div class="kc">${num(f.kcal)}<small> kcal</small></div>
+        <button class="x" data-del-f="${f.id}">×</button></div>`;
+    }
+    html+='</div>';
+  }
+  list.innerHTML=html;
+}
+const esc=s=>String(s||'').replace(/[<>&]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]));
+
+/* -------- Training -------- */
+const TNAMES={swim:'スイム',run:'ラン',bike:'バイク',strength:'筋トレ'};
+const TICON={swim:'🏊',run:'🏃',bike:'🚴',strength:'💪'};
+function renderTrain(){
+  const wk=weekWorkouts();
+  const sum=document.getElementById('tSummary');
+  const by={swim:{m:0,k:0,c:0},run:{m:0,k:0,c:0},bike:{m:0,k:0,c:0},strength:{m:0,k:0,c:0}};
+  wk.forEach(w=>{const b=by[w.type]; b.m+=num(w.min); b.k+=num(w.km); b.c++; });
+  sum.innerHTML=`<div class="grid2">`+Object.keys(TNAMES).map(t=>`
+    <div class="stat"><div class="k">${TICON[t]} ${TNAMES[t]}</div>
+    <div class="v" style="font-size:18px">${by[t].m}<small> 分</small></div>
+    <div class="d" style="color:var(--sub)">${by[t].c}回${by[t].k?` / ${by[t].k.toFixed(1)}km`:''}</div></div>`).join('')+`</div>
+    <div class="mini" style="margin-top:8px">今週合計 ${wk.reduce((s,w)=>s+num(w.min),0)}分・${wk.reduce((s,w)=>s+num(w.kcal),0)}kcal消費</div>`;
+
+  const list=document.getElementById('tList');
+  const groups=groupByDate(workouts);
+  if(!groups.length){ list.innerHTML='<div class="empty">記録がありません</div>'; return; }
+  let html='';
+  for(const g of groups){
+    html+=`<div class="day-h"><span>${fmtDate(g.date)}</span><span class="tot">${g.items.reduce((s,w)=>s+num(w.kcal),0)} kcal</span></div><div class="list">`;
+    for(const w of g.items){
+      const dist=num(w.km)?` · ${num(w.km).toFixed(1)}km`:'';
+      html+=`<div class="item"><div class="ic ${w.type}">${TICON[w.type]}</div>
+        <div class="m"><div class="t">${TNAMES[w.type]} ${w.min}分${dist}</div>
+        <div class="s">${({easy:'イージー',mod:'ミドル',hard:'ハード'})[w.intensity]||''}${w.note?' · '+esc(w.note):''}</div></div>
+        <div class="kc">${num(w.kcal)}<small> kcal</small></div>
+        <button class="x" data-del-t="${w.id}">×</button></div>`;
+    }
+    html+='</div>';
+  }
+  list.innerHTML=html;
+}
+
+/* -------- Settings -------- */
+function renderSet(){
+  document.getElementById('sSex').value=settings.sex;
+  document.getElementById('sAge').value=settings.age||'';
+  document.getElementById('sH').value=settings.h||'';
+  document.getElementById('sTarget').value=settings.target||'';
+  document.getElementById('sAct').value=settings.act||'1.375';
+  document.getElementById('sRace').value=settings.race||'';
+  document.getElementById('sDeficit').value=settings.deficit!=null?settings.deficit:500;
+  document.getElementById('sKey').value=apiKey;
+  document.getElementById('bmrNote').innerHTML=`基礎代謝(BMR) 約 <b>${bmr()}</b> kcal / 維持カロリー(TDEE) 約 <b>${tdee()}</b> kcal。<br>計算体重: ${weightForCalc().toFixed(1)}kg（最新記録 or 70kg仮）`;
+}
+
+/* ============================ Tab nav ============================ */
+document.querySelectorAll('nav.tabs button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('nav.tabs button').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on');
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('on'));
+  document.getElementById('v-'+b.dataset.v).classList.add('on');
+  window.scrollTo(0,0);
+});
+
+/* ============================ Weight actions ============================ */
+document.getElementById('wDate').value=todayStr();
+document.getElementById('fDate').value=todayStr();
+document.getElementById('tDate').value=todayStr();
+
+document.getElementById('wAdd').onclick=()=>{
+  const date=document.getElementById('wDate').value, kg=num(document.getElementById('wKg').value);
+  if(!date||!kg){ toast('日付と体重を入力'); return; }
+  const ex=weights.find(w=>w.date===date);
+  if(ex) ex.kg=kg; else weights.push({id:uid(),date,kg});
+  saveW(); document.getElementById('wKg').value=''; render(); toast('体重を記録しました');
+};
+
+/* ============================ Food actions ============================ */
+document.querySelectorAll('#foodMode button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('#foodMode button').forEach(x=>x.classList.remove('on')); b.classList.add('on');
+  document.getElementById('foodText').style.display=b.dataset.m==='text'?'block':'none';
+  document.getElementById('foodPhoto').style.display=b.dataset.m==='photo'?'block':'none';
+});
+const foodQ=document.getElementById('foodQ'), foodRes=document.getElementById('foodRes');
+foodQ.oninput=()=>{
+  const q=foodQ.value.trim();
+  if(!q){ foodRes.innerHTML=''; return; }
+  const res=FOODDB.filter(f=>f[0].includes(q)).slice(0,8);
+  foodRes.innerHTML=res.length?res.map(f=>`<div class="fr" data-n="${esc(f[0])}" data-k="${f[1]}"><span>${f[0]}</span><span class="kc">${f[1]} kcal</span></div>`).join('')
+    :`<div class="fr" style="cursor:default;color:var(--mut)">候補なし — 下で品名とkcalを手入力</div>`;
+  foodRes.querySelectorAll('.fr[data-n]').forEach(el=>el.onclick=()=>{
+    document.getElementById('ftName').value=el.dataset.n;
+    document.getElementById('ftKcal').value=el.dataset.k;
+    foodRes.innerHTML=''; foodQ.value='';
+  });
+};
+
+let pendingPhotoDataURL=null;
+document.getElementById('fPhoto').onchange=async e=>{
+  const file=e.target.files[0]; if(!file)return;
+  pendingPhotoDataURL=await resizeImage(file,900,0.7);
+  document.getElementById('fPreview').innerHTML=`<img src="${pendingPhotoDataURL}" style="width:100%;max-height:220px;object-fit:cover;border-radius:12px">`;
+};
+function resizeImage(file,maxW,q){ return new Promise(res=>{
+  const img=new Image(); const r=new FileReader();
+  r.onload=()=>{ img.onload=()=>{ let{width:w,height:h}=img; if(w>maxW){h=h*maxW/w;w=maxW;}
+    const c=document.createElement('canvas'); c.width=w;c.height=h;
+    c.getContext('2d').drawImage(img,0,0,w,h); res(c.toDataURL('image/jpeg',q)); };
+    img.src=r.result; };
+  r.readAsDataURL(file); });
+}
+
+document.getElementById('fAI').onclick=async()=>{
+  if(!apiKey){ toast('設定でAPIキーを入れてください'); return; }
+  if(!pendingPhotoDataURL){ toast('先に写真を選択'); return; }
+  const btn=document.getElementById('fAI'); const orig=btn.innerHTML;
+  btn.innerHTML='<span class="spin"></span> 推定中...'; btn.disabled=true;
+  try{
+    const r=await estimateFromImage(pendingPhotoDataURL);
+    document.getElementById('fpName').value=r.name||'料理';
+    document.getElementById('fpKcal').value=r.kcal||'';
+    toast('AI推定: '+(r.kcal||'?')+' kcal');
+  }catch(err){ toast('推定失敗: '+(err.message||'error')); }
+  btn.innerHTML=orig; btn.disabled=false;
+};
+
+async function estimateFromImage(dataURL){
+  const b64=dataURL.split(',')[1];
+  const media=dataURL.substring(5,dataURL.indexOf(';'));
+  const body={ model:'claude-haiku-4-5-20251001', max_tokens:400,
+    messages:[{role:'user',content:[
+      {type:'image',source:{type:'base64',media_type:media,data:b64}},
+      {type:'text',text:'この料理の写真を見て、内容とおおよその総カロリーを推定してください。日本の一般的な分量で。JSONのみで回答: {"name":"料理名(簡潔に)","kcal":整数の総カロリー}'}
+    ]}] };
+  const resp=await fetch('https://api.anthropic.com/v1/messages',{ method:'POST',
+    headers:{'content-type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+    body:JSON.stringify(body) });
+  if(!resp.ok) throw new Error('API '+resp.status);
+  const j=await resp.json(); const txt=(j.content&&j.content[0]&&j.content[0].text)||'';
+  const m=txt.match(/\{[\s\S]*\}/); if(!m) throw new Error('parse');
+  const o=JSON.parse(m[0]); return {name:o.name, kcal:Math.round(o.kcal)};
+}
+
+document.getElementById('fAdd').onclick=async()=>{
+  const mode=document.querySelector('#foodMode button.on').dataset.m;
+  const date=document.getElementById('fDate').value, meal=document.getElementById('fMeal').value;
+  let name,kcal,photoId=null;
+  if(mode==='text'){ name=document.getElementById('ftName').value.trim(); kcal=num(document.getElementById('ftKcal').value); }
+  else { name=document.getElementById('fpName').value.trim(); kcal=num(document.getElementById('fpKcal').value);
+    if(pendingPhotoDataURL){ photoId=uid(); await putPhoto(photoId,pendingPhotoDataURL); } }
+  if(!name||!kcal){ toast('品名とカロリーを入力'); return; }
+  foods.push({id:uid(),date,meal,name,kcal,photoId}); saveF();
+  // reset
+  document.getElementById('ftName').value=''; document.getElementById('ftKcal').value='';
+  document.getElementById('fpName').value=''; document.getElementById('fpKcal').value='';
+  document.getElementById('fPreview').innerHTML=''; document.getElementById('fPhoto').value=''; pendingPhotoDataURL=null;
+  render(); toast('食事を記録しました');
+};
+
+/* ============================ Training actions ============================ */
+let curType='swim', curInt='mod';
+document.querySelectorAll('#tType .chip').forEach(c=>c.onclick=()=>{
+  document.querySelectorAll('#tType .chip').forEach(x=>x.classList.remove('on')); c.classList.add('on');
+  curType=c.dataset.t;
+  document.getElementById('tDistWrap').style.display=curType==='strength'?'none':'block';
+  updateEst();
+});
+document.querySelectorAll('#tInt button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('#tInt button').forEach(x=>x.classList.remove('on')); b.classList.add('on');
+  curInt=b.dataset.i; updateEst();
+});
+['tMin','tKm'].forEach(id=>document.getElementById(id).oninput=updateEst);
+function updateEst(){
+  const min=num(document.getElementById('tMin').value), km=num(document.getElementById('tKm').value);
+  const note=document.getElementById('tEstNote');
+  if(min>0){ const k=estKcal(curType,curInt,km,min);
+    document.getElementById('tKcal').value=k;
+    let pace=''; if(km>0&&curType==='run'){ const p=min/km; pace=` / ペース ${Math.floor(p)}:${String(Math.round((p%1)*60)).padStart(2,'0')}/km`; }
+    note.textContent=`推定消費 ${k}kcal（体重${weightForCalc().toFixed(1)}kg・MET計算${pace}）`;
+  } else { note.textContent='時間を入れると消費kcalを自動計算します'; }
+}
+document.getElementById('tAdd').onclick=()=>{
+  const date=document.getElementById('tDate').value, min=num(document.getElementById('tMin').value);
+  const km=num(document.getElementById('tKm').value), note=document.getElementById('tNote').value.trim();
+  let kcal=num(document.getElementById('tKcal').value);
+  if(!date||!min){ toast('日付と時間を入力'); return; }
+  if(!kcal) kcal=estKcal(curType,curInt,km,min);
+  workouts.push({id:uid(),date,type:curType,min,km,intensity:curInt,kcal,note}); saveT();
+  document.getElementById('tMin').value=''; document.getElementById('tKm').value='';
+  document.getElementById('tKcal').value=''; document.getElementById('tNote').value=''; updateEst();
+  render(); toast('トレーニングを記録しました');
+};
+
+/* ============================ Settings actions ============================ */
+document.getElementById('sSave').onclick=()=>{
+  settings={ sex:document.getElementById('sSex').value, age:num(document.getElementById('sAge').value),
+    h:num(document.getElementById('sH').value), target:num(document.getElementById('sTarget').value),
+    act:document.getElementById('sAct').value, race:document.getElementById('sRace').value,
+    deficit:num(document.getElementById('sDeficit').value) };
+  saveS(); render(); toast('設定を保存しました');
+};
+document.getElementById('sSaveKey').onclick=()=>{
+  apiKey=document.getElementById('sKey').value.trim();
+  if(apiKey) localStorage.setItem(KEY.api,apiKey); else localStorage.removeItem(KEY.api);
+  toast('APIキーを保存しました');
+};
+
+/* Delete handlers (event delegation) */
+document.body.addEventListener('click',async e=>{
+  const t=e.target;
+  if(t.dataset.delW){ weights=weights.filter(w=>w.id!==t.dataset.delW); saveW(); render(); }
+  if(t.dataset.delT){ workouts=workouts.filter(w=>w.id!==t.dataset.delT); saveT(); render(); }
+  if(t.dataset.delF){ const f=foods.find(x=>x.id===t.dataset.delF); if(f&&f.photoId)await delPhoto(f.photoId);
+    foods=foods.filter(x=>x.id!==t.dataset.delF); saveF(); render(); }
+});
+
+/* Export / Import / Wipe */
+document.getElementById('expBtn').onclick=()=>{
+  const data={version:1,weights,foods:foods.map(f=>({...f})),workouts,settings,exportedAt:new Date().toISOString()};
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download='tri-coach-backup.json'; a.click(); toast('エクスポートしました');
+};
+document.getElementById('impBtn').onclick=()=>document.getElementById('impFile').click();
+document.getElementById('impFile').onchange=e=>{
+  const file=e.target.files[0]; if(!file)return; const r=new FileReader();
+  r.onload=()=>{ try{ const d=JSON.parse(r.result);
+    if(d.weights)weights=d.weights; if(d.foods)foods=d.foods; if(d.workouts)workouts=d.workouts;
+    if(d.settings)settings=d.settings; saveW();saveF();saveT();saveS(); render(); toast('インポートしました');
+  }catch(err){ toast('読み込み失敗'); } };
+  r.readAsText(file);
+};
+document.getElementById('wipeBtn').onclick=()=>{
+  if(!confirm('全データを削除します。よろしいですか？'))return;
+  weights=[];foods=[];workouts=[]; saveW();saveF();saveT();
+  if(idb){ const tx=idb.transaction('ph','readwrite'); tx.objectStore('ph').clear(); }
+  render(); toast('削除しました');
+};
+
+/* ============================ Init ============================ */
+(async()=>{ await openIDB(); render(); updateEst();
+  if('serviceWorker' in navigator){ try{ await navigator.serviceWorker.register('sw.js'); }catch(e){} }
+})();
+</script>
+</body>
+</html>
