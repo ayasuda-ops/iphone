@@ -301,8 +301,8 @@
         <div class="chip strength" data-t="strength">💪 筋トレ</div>
       </div>
       <div class="grid2" style="margin-top:12px">
-        <div><label class="f">時間(分)</label><input id="tMin" type="number" inputmode="numeric" placeholder="45"></div>
-        <div id="tDistWrap"><label class="f">距離(km)</label><input id="tKm" type="number" inputmode="decimal" step="0.1" placeholder="任意"></div>
+        <div id="tDistWrap"><label class="f" id="tDistLabel">距離(km)</label><input id="tKm" type="number" inputmode="decimal" step="0.1" placeholder="例 10"></div>
+        <div><label class="f" id="tMinLabel">時間(分・任意)</label><input id="tMin" type="number" inputmode="numeric" placeholder="任意"></div>
       </div>
       <label class="f" style="margin-top:12px">強度</label>
       <div class="seg" id="tInt">
@@ -482,10 +482,25 @@ function metFor(type,intensity,km,min){
   };
   return table[type][intensity];
 }
+/* 距離あたりの消費係数 (kcal / 体重kg / km)。距離だけで推計する場合に使用 */
+const KCAL_PER_KM={
+  run:{easy:0.95, mod:1.03, hard:1.10},   // ランは速度によらずほぼ一定 (≒1kcal/kg/km)
+  bike:{easy:0.30, mod:0.42, hard:0.52},  // バイクは平均巡航速度で概算
+  swim:{easy:2.9,  mod:3.5,  hard:4.2}    // スイムは水抵抗で距離あたり消費が大きい
+};
 function estKcal(type,intensity,km,min){
-  // 厚労省「健康づくりのための身体活動基準」準拠: 1.05 × METs × 体重(kg) × 時間(h)
-  const m=metFor(type,intensity,km,min); const w=weightForCalc();
-  return Math.round(1.05*m*w*(min/60));
+  const w=weightForCalc();
+  // 時間・距離が両方あるラン/バイクは速度からMETを判定(最も正確)
+  if(min>0 && km>0 && (type==='run'||type==='bike')){
+    const m=metFor(type,intensity,km,min); return Math.round(1.05*m*w*(min/60));
+  }
+  // 距離ベース推計 (時間なしでもOK)
+  if(km>0 && KCAL_PER_KM[type]){
+    return Math.round(KCAL_PER_KM[type][intensity]*w*km);
+  }
+  // 時間ベース (筋トレ、または距離なしで時間のみ): 1.05 × METs × 体重 × 時間h
+  if(min>0){ const m=metFor(type,intensity,0,min); return Math.round(1.05*m*w*(min/60)); }
+  return 0;
 }
 
 /* ============================ Charts (SVG) ============================ */
@@ -585,16 +600,18 @@ function renderHome(){
   const wk=weekWorkouts();
   const el=document.getElementById('weekTrain');
   if(!wk.length){ el.innerHTML='<div class="empty">今週の記録はまだありません</div>'; return; }
-  const by={swim:0,run:0,bike:0,strength:0}, cal={swim:0,run:0,bike:0,strength:0};
-  wk.forEach(w=>{by[w.type]+=num(w.min); cal[w.type]+=num(w.kcal);});
+  const cal={swim:0,run:0,bike:0,strength:0}, dist={swim:0,run:0,bike:0,strength:0}, mins={swim:0,run:0,bike:0,strength:0};
+  wk.forEach(w=>{cal[w.type]+=num(w.kcal); dist[w.type]+=num(w.km); mins[w.type]+=num(w.min);});
   const names={swim:'🏊 スイム',run:'🏃 ラン',bike:'🚴 バイク',strength:'💪 筋トレ'};
   const cols={swim:'var(--swim)',run:'var(--run)',bike:'var(--bike)',strength:'var(--strength)'};
-  const maxM=Math.max(...Object.values(by),1);
+  const maxC=Math.max(...Object.values(cal),1);
+  const label=t=> t==='strength'? `${mins[t]}分`
+      : (dist[t]>0 ? (t==='swim'?`${Math.round(dist[t]*1000)}m`:`${dist[t].toFixed(1)}km`) : `${mins[t]}分`);
   el.innerHTML=Object.keys(names).map(t=>`
     <div class="barrow"><div class="lab">${names[t].split(' ')[0]}</div>
-    <div class="track"><div class="fill" style="width:${(by[t]/maxM*100)}%;background:${cols[t]}"></div></div>
-    <div class="val">${by[t]}分</div></div>`).join('')
-    + `<div class="mini" style="margin-top:6px">今週合計 ${wk.reduce((s,w)=>s+num(w.min),0)}分 / ${wk.reduce((s,w)=>s+num(w.kcal),0)}kcal 消費</div>`;
+    <div class="track"><div class="fill" style="width:${(cal[t]/maxC*100)}%;background:${cols[t]}"></div></div>
+    <div class="val">${label(t)}</div></div>`).join('')
+    + `<div class="mini" style="margin-top:6px">今週合計 ${wk.reduce((s,w)=>s+num(w.kcal),0)}kcal 消費</div>`;
 }
 
 function weekWorkouts(){ const now=new Date(todayStr()+'T00:00:00'); const day=(now.getDay()+6)%7;
@@ -654,11 +671,15 @@ function renderTrain(){
   const sum=document.getElementById('tSummary');
   const by={swim:{m:0,k:0,c:0},run:{m:0,k:0,c:0},bike:{m:0,k:0,c:0},strength:{m:0,k:0,c:0}};
   wk.forEach(w=>{const b=by[w.type]; b.m+=num(w.min); b.k+=num(w.km); b.c++; });
-  sum.innerHTML=`<div class="grid2">`+Object.keys(TNAMES).map(t=>`
-    <div class="stat"><div class="k">${TICON[t]} ${TNAMES[t]}</div>
-    <div class="v" style="font-size:18px">${by[t].m}<small> 分</small></div>
-    <div class="d" style="color:var(--sub)">${by[t].c}回${by[t].k?` / ${by[t].k.toFixed(1)}km`:''}</div></div>`).join('')+`</div>
-    <div class="mini" style="margin-top:8px">今週合計 ${wk.reduce((s,w)=>s+num(w.min),0)}分・${wk.reduce((s,w)=>s+num(w.kcal),0)}kcal消費</div>`;
+  sum.innerHTML=`<div class="grid2">`+Object.keys(TNAMES).map(t=>{
+    const primary = t==='strength' ? `${by[t].m}<small> 分</small>`
+      : (by[t].k>0 ? (t==='swim'? `${Math.round(by[t].k*1000)}<small> m</small>` : `${by[t].k.toFixed(1)}<small> km</small>`)
+                   : `${by[t].m}<small> 分</small>`);
+    return `<div class="stat"><div class="k">${TICON[t]} ${TNAMES[t]}</div>
+    <div class="v" style="font-size:18px">${primary}</div>
+    <div class="d" style="color:var(--sub)">${by[t].c}回${by[t].m?` / ${by[t].m}分`:''}</div></div>`;
+  }).join('')+`</div>
+    <div class="mini" style="margin-top:8px">今週合計 ${wk.reduce((s,w)=>s+num(w.kcal),0)}kcal消費</div>`;
 
   const list=document.getElementById('tList');
   const groups=groupByDate(workouts);
@@ -667,9 +688,11 @@ function renderTrain(){
   for(const g of groups){
     html+=`<div class="day-h"><span>${fmtDate(g.date)}</span><span class="tot">${g.items.reduce((s,w)=>s+num(w.kcal),0)} kcal</span></div><div class="list">`;
     for(const w of g.items){
-      const dist=num(w.km)?` · ${num(w.km).toFixed(1)}km`:'';
+      const distStr = num(w.km)? (w.type==='swim'? `${Math.round(w.km*1000)}m` : `${num(w.km).toFixed(1)}km`) : '';
+      const timeStr = num(w.min)? `${w.min}分` : '';
+      const head = [distStr,timeStr].filter(Boolean).join(' · ') || '記録';
       html+=`<div class="item"><div class="ic ${w.type}">${TICON[w.type]}</div>
-        <div class="m"><div class="t">${TNAMES[w.type]} ${w.min}分${dist}</div>
+        <div class="m"><div class="t">${TNAMES[w.type]} ${head}</div>
         <div class="s">${({easy:'イージー',mod:'ミドル',hard:'ハード'})[w.intensity]||''}${w.note?' · '+esc(w.note):''}</div></div>
         <div class="kc">${num(w.kcal)}<small> kcal</small></div>
         <button class="x" data-del-t="${w.id}">×</button></div>`;
@@ -841,11 +864,21 @@ document.getElementById('fAdd').onclick=async()=>{
 
 /* ============================ Training actions ============================ */
 let curType='swim', curInt='mod';
+/* スイムはメートル入力→内部はkm換算で統一保存 */
+function readKm(){ const v=num(document.getElementById('tKm').value); return curType==='swim'? v/1000 : v; }
+function applyTypeUI(){
+  const distWrap=document.getElementById('tDistWrap'), distLab=document.getElementById('tDistLabel');
+  const km=document.getElementById('tKm'), minLab=document.getElementById('tMinLabel');
+  if(curType==='strength'){ distWrap.style.display='none'; minLab.textContent='時間(分)'; }
+  else{ distWrap.style.display='block'; minLab.textContent='時間(分・任意)';
+    if(curType==='swim'){ distLab.textContent='距離(m)'; km.placeholder='例 1500'; km.step='50'; }
+    else if(curType==='bike'){ distLab.textContent='距離(km)'; km.placeholder='例 30'; km.step='0.1'; }
+    else{ distLab.textContent='距離(km)'; km.placeholder='例 10'; km.step='0.1'; }
+  }
+}
 document.querySelectorAll('#tType .chip').forEach(c=>c.onclick=()=>{
   document.querySelectorAll('#tType .chip').forEach(x=>x.classList.remove('on')); c.classList.add('on');
-  curType=c.dataset.t;
-  document.getElementById('tDistWrap').style.display=curType==='strength'?'none':'block';
-  updateEst();
+  curType=c.dataset.t; applyTypeUI(); updateEst();
 });
 document.querySelectorAll('#tInt button').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('#tInt button').forEach(x=>x.classList.remove('on')); b.classList.add('on');
@@ -853,19 +886,24 @@ document.querySelectorAll('#tInt button').forEach(b=>b.onclick=()=>{
 });
 ['tMin','tKm'].forEach(id=>document.getElementById(id).oninput=updateEst);
 function updateEst(){
-  const min=num(document.getElementById('tMin').value), km=num(document.getElementById('tKm').value);
+  const min=num(document.getElementById('tMin').value), km=readKm();
   const note=document.getElementById('tEstNote');
-  if(min>0){ const k=estKcal(curType,curInt,km,min);
+  if(km>0 || min>0){
+    const k=estKcal(curType,curInt,km,min);
     document.getElementById('tKcal').value=k;
-    let pace=''; if(km>0&&curType==='run'){ const p=min/km; pace=` / ペース ${Math.floor(p)}:${String(Math.round((p%1)*60)).padStart(2,'0')}/km`; }
-    note.textContent=`推定消費 ${k}kcal（体重${weightForCalc().toFixed(1)}kg・MET計算${pace}）`;
-  } else { note.textContent='時間を入れると消費kcalを自動計算します'; }
+    let basis = (km>0 && min>0 && (curType==='run'||curType==='bike')) ? 'MET(速度)計算'
+      : (km>0 ? '距離ベース推計' : 'MET(時間)計算');
+    let pace=''; if(km>0&&min>0&&curType==='run'){ const p=min/km; pace=` / ペース ${Math.floor(p)}:${String(Math.round((p%1)*60)).padStart(2,'0')}/km`; }
+    note.textContent=`推定消費 ${k}kcal（体重${weightForCalc().toFixed(1)}kg・${basis}${pace}）`;
+  } else { note.textContent=curType==='strength'?'時間(分)を入れると消費kcalを自動計算します':'距離または時間を入れると消費kcalを自動計算します'; }
 }
 document.getElementById('tAdd').onclick=()=>{
   const date=document.getElementById('tDate').value, min=num(document.getElementById('tMin').value);
-  const km=num(document.getElementById('tKm').value), note=document.getElementById('tNote').value.trim();
+  const km=readKm(), note=document.getElementById('tNote').value.trim();
   let kcal=num(document.getElementById('tKcal').value);
-  if(!date||!min){ toast('日付と時間を入力'); return; }
+  if(!date){ toast('日付を入力'); return; }
+  if(curType==='strength'){ if(!min){ toast('筋トレは時間(分)を入力'); return; } }
+  else if(km<=0 && min<=0){ toast('距離または時間を入力'); return; }
   if(!kcal) kcal=estKcal(curType,curInt,km,min);
   workouts.push({id:uid(),date,type:curType,min,km,intensity:curInt,kcal,note}); saveT();
   document.getElementById('tMin').value=''; document.getElementById('tKm').value='';
@@ -920,7 +958,7 @@ document.getElementById('wipeBtn').onclick=()=>{
 };
 
 /* ============================ Init ============================ */
-(async()=>{ await openIDB(); render(); updateEst();
+(async()=>{ await openIDB(); render(); applyTypeUI(); updateEst();
   if('serviceWorker' in navigator){ try{ await navigator.serviceWorker.register('sw.js'); }catch(e){} }
 })();
 </script>
