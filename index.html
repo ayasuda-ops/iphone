@@ -318,7 +318,19 @@
       </div>
       <div class="grid2" style="margin-top:12px">
         <div id="tDistWrap"><label class="f" id="tDistLabel">距離(km)</label><input id="tKm" type="number" inputmode="decimal" step="0.1" placeholder="例 10"></div>
-        <div><label class="f" id="tMinLabel">時間(分・任意)</label><input id="tMin" type="number" inputmode="numeric" placeholder="任意"></div>
+        <div><label class="f" id="tMinLabel">時間(分・任意)</label>
+          <div class="row" style="gap:6px">
+            <input id="tMin" type="number" inputmode="numeric" placeholder="分">
+            <input id="tSec" type="number" inputmode="numeric" min="0" max="59" placeholder="秒" style="display:none">
+          </div>
+        </div>
+      </div>
+      <div id="tStrokeWrap" style="margin-top:12px; display:none">
+        <label class="f">泳法</label>
+        <div class="seg" id="tStroke">
+          <button class="on" data-s="crawl">🏊 クロール</button>
+          <button data-s="breast">🐸 平泳ぎ</button>
+        </div>
       </div>
       <label class="f" style="margin-top:12px">強度</label>
       <div class="seg" id="tInt">
@@ -340,6 +352,15 @@
     <div class="card">
       <h2>今週のサマリー</h2>
       <div id="tSummary"></div>
+    </div>
+    <div class="card">
+      <h2>スイム 100mペースの推移</h2>
+      <div class="seg" id="paceStroke" style="margin-bottom:12px">
+        <button class="on" data-s="crawl">🏊 クロール</button>
+        <button data-s="breast">🐸 平泳ぎ</button>
+      </div>
+      <div id="paceChart"></div>
+      <div class="mini" id="paceNote" style="margin-top:8px"></div>
     </div>
     <div class="card">
       <h2>トレーニングログ</h2>
@@ -457,6 +478,8 @@ const todayStr=()=>{const d=new Date();return d.toISOString().slice(0,10);};
 const fmtDate=s=>{const d=new Date(s+'T00:00:00');return `${d.getMonth()+1}/${d.getDate()}(${'日月火水木金土'[d.getDay()]})`;};
 const toast=(m)=>{const t=document.getElementById('toast');t.textContent=m;t.classList.add('on');clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove('on'),1600);};
 const num=v=>{const n=parseFloat(v);return isNaN(n)?0:n;};
+const fmtMMSS=sec=>{ sec=Math.round(sec); const m=Math.floor(sec/60), s=sec%60; return m+':'+String(s).padStart(2,'0'); };
+const STROKE_NAME={crawl:'クロール',breast:'平泳ぎ'};
 
 function latestWeight(){ if(!weights.length)return null;
   return [...weights].sort((a,b)=>b.date.localeCompare(a.date))[0].kg; }
@@ -586,6 +609,46 @@ function balanceSeries(days){
   const maint=tdee();
   const dates=[...new Set(foods.map(f=>f.date))].sort();
   return dates.slice(-days).map(d=>({date:d, net: dayKcalIn(d) - (maint + dayKcalEx(d)) }));
+}
+
+/* スイム 100mペース推移 (points=[{date, sec100}])。Y軸反転で速い=上 */
+function paceChart(el, data, opts={}){
+  const W=el.clientWidth||480, H=opts.h||160, pad={l:44,r:10,t:14,b:22};
+  if(!data.length){ el.innerHTML='<div class="empty">距離＋タイムを記録すると上達グラフが表示されます</div>'; return; }
+  const ys=data.map(d=>d.sec100);
+  let minY=Math.min(...ys), maxY=Math.max(...ys);
+  const span=(maxY-minY)||10; minY-=span*0.2; maxY+=span*0.2;
+  const xs=data.map(d=>new Date(d.date+'T00:00:00').getTime());
+  const minX=Math.min(...xs), maxX=Math.max(...xs)||(minX+1), spanX=(maxX-minX)||1;
+  const col=opts.color||'var(--swim)';
+  const px=t=>pad.l+(t-minX)/spanX*(W-pad.l-pad.r);
+  const py=v=>pad.t+((v-minY)/(maxY-minY))*(H-pad.t-pad.b); // 反転: 小さい(速い)ほど上
+  let path='',area='';
+  data.forEach((d,i)=>{ const x=px(xs[i]),y=py(d.sec100); path+=(i?'L':'M')+x.toFixed(1)+' '+y.toFixed(1)+' '; });
+  area=path+`L${px(maxX).toFixed(1)} ${py(maxY).toFixed(1)} L${px(minX).toFixed(1)} ${py(maxY).toFixed(1)} Z`;
+  const gy=[minY+(maxY-minY)*0.2,(minY+maxY)/2,maxY-(maxY-minY)*0.2];
+  const grid=gy.map(v=>`<line x1="${pad.l}" y1="${py(v).toFixed(1)}" x2="${W-pad.r}" y2="${py(v).toFixed(1)}" stroke="var(--line)" stroke-width="1"/>
+    <text x="4" y="${(py(v)+3).toFixed(1)}" fill="var(--mut)" font-size="9">${fmtMMSS(v)}</text>`).join('');
+  const best=Math.min(...ys); const by=py(best);
+  const bline=`<line x1="${pad.l}" y1="${by.toFixed(1)}" x2="${W-pad.r}" y2="${by.toFixed(1)}" stroke="var(--gold)" stroke-width="1.3" stroke-dasharray="4 4"/>
+    <text x="${W-pad.r}" y="${(by-3).toFixed(1)}" fill="var(--gold)" font-size="9" text-anchor="end">自己ベスト ${fmtMMSS(best)}</text>`;
+  const dots=data.map((d,i)=>`<circle cx="${px(xs[i]).toFixed(1)}" cy="${py(d.sec100).toFixed(1)}" r="${i===data.length-1?3.5:2.2}" fill="${col}"/>`).join('');
+  const xl=`<text x="${pad.l}" y="${H-6}" fill="var(--mut)" font-size="9">${fmtDate(data[0].date).split('(')[0]}</text>`
+    +(data.length>1?`<text x="${W-pad.r}" y="${H-6}" fill="var(--mut)" font-size="9" text-anchor="end">${fmtDate(data[data.length-1].date).split('(')[0]}</text>`:'');
+  el.innerHTML=`<svg width="100%" height="${H}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="display:block">
+    <defs><linearGradient id="pg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="${col}" stop-opacity="0.26"/><stop offset="1" stop-color="${col}" stop-opacity="0"/></linearGradient></defs>
+    ${grid}<path d="${area}" fill="url(#pg)"/>${bline}
+    <path d="${path}" fill="none" stroke="${col}" stroke-width="2.2" stroke-linejoin="round"/>${dots}${xl}</svg>`;
+}
+/* 指定泳法の日別ベストペース(sec/100m)を昇順で返す */
+function paceSeries(stroke){
+  const byDate={};
+  workouts.filter(w=>w.type==='swim' && w.stroke===stroke && num(w.km)>0 && num(w.min)>0).forEach(w=>{
+    const sec100=(num(w.min)*60)/(num(w.km)*1000/100);
+    if(byDate[w.date]==null || sec100<byDate[w.date]) byDate[w.date]=sec100;
+  });
+  return Object.keys(byDate).sort().map(d=>({date:d, sec100:byDate[d]}));
 }
 
 /* ============================ Renders ============================ */
@@ -754,27 +817,32 @@ function renderTrain(){
   const by={swim:{m:0,k:0,c:0},run:{m:0,k:0,c:0},bike:{m:0,k:0,c:0},strength:{m:0,k:0,c:0}};
   wk.forEach(w=>{const b=by[w.type]; b.m+=num(w.min); b.k+=num(w.km); b.c++; });
   sum.innerHTML=`<div class="grid2">`+Object.keys(TNAMES).map(t=>{
-    const primary = t==='strength' ? `${by[t].m}<small> 分</small>`
+    const mins=Math.round(by[t].m);
+    const primary = t==='strength' ? `${mins}<small> 分</small>`
       : (by[t].k>0 ? (t==='swim'? `${Math.round(by[t].k*1000)}<small> m</small>` : `${by[t].k.toFixed(1)}<small> km</small>`)
-                   : `${by[t].m}<small> 分</small>`);
+                   : `${mins}<small> 分</small>`);
     return `<div class="stat"><div class="k">${TICON[t]} ${TNAMES[t]}</div>
     <div class="v" style="font-size:18px">${primary}</div>
-    <div class="d" style="color:var(--sub)">${by[t].c}回${by[t].m?` / ${by[t].m}分`:''}</div></div>`;
+    <div class="d" style="color:var(--sub)">${by[t].c}回${mins?` / ${mins}分`:''}</div></div>`;
   }).join('')+`</div>
     <div class="mini" style="margin-top:8px">今週合計 ${wk.reduce((s,w)=>s+num(w.kcal),0)}kcal消費</div>`;
 
   const list=document.getElementById('tList');
   const groups=groupByDate(workouts);
-  if(!groups.length){ list.innerHTML='<div class="empty">記録がありません</div>'; return; }
+  if(!groups.length){ list.innerHTML='<div class="empty">記録がありません</div>'; renderPace(); return; }
   let html='';
   for(const g of groups){
     html+=`<div class="day-h"><span>${fmtDate(g.date)}</span><span class="tot">${g.items.reduce((s,w)=>s+num(w.kcal),0)} kcal</span></div><div class="list">`;
     for(const w of g.items){
-      const distStr = num(w.km)? (w.type==='swim'? `${Math.round(w.km*1000)}m` : `${num(w.km).toFixed(1)}km`) : '';
-      const timeStr = num(w.min)? `${w.min}分` : '';
-      const head = [distStr,timeStr].filter(Boolean).join(' · ') || '記録';
+      const isSwim=w.type==='swim';
+      const distStr = num(w.km)? (isSwim? `${Math.round(w.km*1000)}m` : `${num(w.km).toFixed(1)}km`) : '';
+      const timeStr = num(w.min)? (isSwim? fmtMMSS(num(w.min)*60) : `${Math.round(num(w.min))}分`) : '';
+      let paceStr='';
+      if(isSwim && num(w.km)>0 && num(w.min)>0){ paceStr=` (${fmtMMSS((num(w.min)*60)/(num(w.km)*1000/100))}/100m)`; }
+      const name = TNAMES[w.type] + (isSwim && w.stroke ? ' '+STROKE_NAME[w.stroke] : '');
+      const head = ([distStr,timeStr].filter(Boolean).join(' · ') || '記録') + paceStr;
       html+=`<div class="item"><div class="ic ${w.type}">${TICON[w.type]}</div>
-        <div class="m"><div class="t">${TNAMES[w.type]} ${head}</div>
+        <div class="m"><div class="t">${name} ${head}</div>
         <div class="s">${({easy:'イージー',mod:'ミドル',hard:'ハード'})[w.intensity]||''}${w.note?' · '+esc(w.note):''}</div></div>
         <div class="kc">${num(w.kcal)}<small> kcal</small></div>
         <button class="x" data-del-t="${w.id}">×</button></div>`;
@@ -782,6 +850,7 @@ function renderTrain(){
     html+='</div>';
   }
   list.innerHTML=html;
+  renderPace();
 }
 
 /* -------- Settings -------- */
@@ -946,17 +1015,26 @@ document.getElementById('fAdd').onclick=async()=>{
 };
 
 /* ============================ Training actions ============================ */
-let curType='swim', curInt='mod';
+let curType='swim', curInt='mod', curStroke='crawl';
 /* スイムはメートル入力→内部はkm換算で統一保存 */
 function readKm(){ const v=num(document.getElementById('tKm').value); return curType==='swim'? v/1000 : v; }
+/* 時間(分)。スイムは 分＋秒 を小数分に合成 */
+function readMinutes(){ const m=num(document.getElementById('tMin').value);
+  return curType==='swim'? m + num(document.getElementById('tSec').value)/60 : m; }
 function applyTypeUI(){
   const distWrap=document.getElementById('tDistWrap'), distLab=document.getElementById('tDistLabel');
   const km=document.getElementById('tKm'), minLab=document.getElementById('tMinLabel');
+  const sec=document.getElementById('tSec'), strokeWrap=document.getElementById('tStrokeWrap');
+  const isSwim=curType==='swim';
+  sec.style.display=isSwim?'block':'none';
+  strokeWrap.style.display=isSwim?'block':'none';
   if(curType==='strength'){ distWrap.style.display='none'; minLab.textContent='時間(分)'; }
-  else{ distWrap.style.display='block'; minLab.textContent='時間(分・任意)';
-    if(curType==='swim'){ distLab.textContent='距離(m)'; km.placeholder='例 1500'; km.step='50'; }
-    else if(curType==='bike'){ distLab.textContent='距離(km)'; km.placeholder='例 30'; km.step='0.1'; }
-    else{ distLab.textContent='距離(km)'; km.placeholder='例 10'; km.step='0.1'; }
+  else{ distWrap.style.display='block';
+    if(isSwim){ minLab.textContent='タイム(分:秒・任意)'; distLab.textContent='距離(m)'; km.placeholder='例 1500'; km.step='50'; }
+    else{ minLab.textContent='時間(分・任意)';
+      if(curType==='bike'){ distLab.textContent='距離(km)'; km.placeholder='例 30'; km.step='0.1'; }
+      else{ distLab.textContent='距離(km)'; km.placeholder='例 10'; km.step='0.1'; }
+    }
   }
 }
 document.querySelectorAll('#tType .chip').forEach(c=>c.onclick=()=>{
@@ -967,32 +1045,56 @@ document.querySelectorAll('#tInt button').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('#tInt button').forEach(x=>x.classList.remove('on')); b.classList.add('on');
   curInt=b.dataset.i; updateEst();
 });
-['tMin','tKm'].forEach(id=>document.getElementById(id).oninput=updateEst);
+document.querySelectorAll('#tStroke button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('#tStroke button').forEach(x=>x.classList.remove('on')); b.classList.add('on');
+  curStroke=b.dataset.s; updateEst();
+});
+['tMin','tSec','tKm'].forEach(id=>document.getElementById(id).oninput=updateEst);
 function updateEst(){
-  const min=num(document.getElementById('tMin').value), km=readKm();
+  const min=readMinutes(), km=readKm();
   const note=document.getElementById('tEstNote');
   if(km>0 || min>0){
     const k=estKcal(curType,curInt,km,min);
     document.getElementById('tKcal').value=k;
     let basis = (km>0 && min>0 && (curType==='run'||curType==='bike')) ? 'MET(速度)計算'
       : (km>0 ? '距離ベース推計' : 'MET(時間)計算');
-    let pace=''; if(km>0&&min>0&&curType==='run'){ const p=min/km; pace=` / ペース ${Math.floor(p)}:${String(Math.round((p%1)*60)).padStart(2,'0')}/km`; }
+    let pace='';
+    if(km>0&&min>0&&curType==='run'){ const p=min/km; pace=` / ペース ${fmtMMSS(p*60)}/km`; }
+    if(km>0&&min>0&&curType==='swim'){ const sec100=(min*60)/(km*1000/100); pace=` / ペース ${fmtMMSS(sec100)}/100m`; }
     note.textContent=`推定消費 ${k}kcal（体重${weightForCalc().toFixed(1)}kg・${basis}${pace}）`;
   } else { note.textContent=curType==='strength'?'時間(分)を入れると消費kcalを自動計算します':'距離または時間を入れると消費kcalを自動計算します'; }
 }
 document.getElementById('tAdd').onclick=()=>{
-  const date=document.getElementById('tDate').value, min=num(document.getElementById('tMin').value);
+  const date=document.getElementById('tDate').value, min=readMinutes();
   const km=readKm(), note=document.getElementById('tNote').value.trim();
   let kcal=num(document.getElementById('tKcal').value);
   if(!date){ toast('日付を入力'); return; }
   if(curType==='strength'){ if(!min){ toast('筋トレは時間(分)を入力'); return; } }
   else if(km<=0 && min<=0){ toast('距離または時間を入力'); return; }
   if(!kcal) kcal=estKcal(curType,curInt,km,min);
-  workouts.push({id:uid(),date,type:curType,min,km,intensity:curInt,kcal,note}); saveT();
-  document.getElementById('tMin').value=''; document.getElementById('tKm').value='';
-  document.getElementById('tKcal').value=''; document.getElementById('tNote').value=''; updateEst();
+  const w={id:uid(),date,type:curType,min,km,intensity:curInt,kcal,note};
+  if(curType==='swim') w.stroke=curStroke;
+  workouts.push(w); saveT();
+  document.getElementById('tMin').value=''; document.getElementById('tSec').value='';
+  document.getElementById('tKm').value=''; document.getElementById('tKcal').value='';
+  document.getElementById('tNote').value=''; updateEst();
   render(); toast('トレーニングを記録しました');
 };
+/* ペース推移グラフの泳法トグル */
+let paceStrokeSel='crawl';
+document.querySelectorAll('#paceStroke button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('#paceStroke button').forEach(x=>x.classList.remove('on')); b.classList.add('on');
+  paceStrokeSel=b.dataset.s; renderPace();
+});
+function renderPace(){
+  const pts=paceSeries(paceStrokeSel);
+  paceChart(document.getElementById('paceChart'), pts, {color: paceStrokeSel==='crawl'?'var(--swim)':'var(--strength)', h:160});
+  const note=document.getElementById('paceNote');
+  if(pts.length>=2){ const first=pts[0].sec100, last=pts[pts.length-1].sec100, diff=last-first;
+    note.innerHTML=`${STROKE_NAME[paceStrokeSel]}: 初回 ${fmtMMSS(first)} → 最新 ${fmtMMSS(last)} /100m ・ <b style="color:${diff<=0?'var(--acc2)':'var(--warn)'}">${diff<=0?'−':'+'}${fmtMMSS(Math.abs(diff))}</b>（上ほど速い＝上達）`;
+  } else if(pts.length===1){ note.innerHTML=`${STROKE_NAME[paceStrokeSel]}: ${fmtMMSS(pts[0].sec100)}/100m ・ もう1回記録すると推移が出ます`;
+  } else note.textContent='';
+}
 
 /* ============================ Settings actions ============================ */
 document.getElementById('sSave').onclick=()=>{
