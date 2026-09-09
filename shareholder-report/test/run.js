@@ -99,6 +99,11 @@ eq('cc: 3件', ctx.countAddresses_('a@x.com, b@x.com, c@x.com'), 3);
 eq('cc: 空文字', ctx.countAddresses_(''), 0);
 eq('cc: 末尾カンマを数えない', ctx.countAddresses_('a@x.com, '), 1);
 
+// formatDateLabel_ : 曜日は日本語（Utilities.formatDate の 'E' は英語を返す）
+eq('dateLabel: 水曜', ctx.formatDateLabel_(new Date(2026, 8, 9)), '2026年09月09日(水)');
+eq('dateLabel: 日曜', ctx.formatDateLabel_(new Date(2026, 8, 13)), '2026年09月13日(日)');
+eq('dateLabel: 月をまたいだ土曜', ctx.formatDateLabel_(new Date(2026, 9, 3)), '2026年10月03日(土)');
+
 // 日付ユーティリティ
 eq('date: startOfDay は 00:00', ctx.startOfDay_(new Date(2026, 8, 9, 23, 30)).getHours(), 0);
 eq('date: offsetDate は月をまたぐ', ctx.formatDate_(ctx.offsetDate_(new Date(2026, 8, 30), 1), 'yyyy-MM-dd'), '2026-10-01');

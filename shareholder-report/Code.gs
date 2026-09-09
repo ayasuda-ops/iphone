@@ -61,7 +61,7 @@ function sendDigestForDate_(date) {
  * @return {{dateLabel: string, body: string, eventCount: number, docCount: number}}
  */
 function buildDigest_(date) {
-  var dateLabel = formatDate_(date, 'yyyy年MM月dd日(E)');
+  var dateLabel = formatDateLabel_(date);
   var dayStart = startOfDay_(date);
   var dayEnd = offsetDate_(dayStart, 1);
 
@@ -488,6 +488,16 @@ function offsetDate_(date, days) {
 
 function formatDate_(date, pattern) {
   return Utilities.formatDate(date, Session.getScriptTimeZone(), pattern);
+}
+
+var WEEKDAYS_JA = ['日', '月', '火', '水', '木', '金', '土'];
+
+/**
+ * 「2026年09月09日(水)」形式の日付ラベル。
+ * Utilities.formatDate の 'E' はロケール依存で英語の略称（Wed）を返すため、曜日は自前で付ける。
+ */
+function formatDateLabel_(date) {
+  return formatDate_(date, 'yyyy年MM月dd日') + '(' + WEEKDAYS_JA[date.getDay()] + ')';
 }
 
 // ── トリガー管理 ────────────────────────────────────
