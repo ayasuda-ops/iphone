@@ -89,8 +89,12 @@ eq('date: offsetDate は月をまたぐ', ctx.formatDate_(ctx.offsetDate_(new Da
 
 // プロンプト
 const prompt = ctx.buildPrompt_('2026年09月09日(水)');
-eq('prompt: 3ブロックを指示', ['【本日の動き】','【決定事項】','【次の一手】'].every(k => prompt.includes(k)), true);
+eq('prompt: 時系列の見出し形式を指示', prompt.includes('■ HH:MM-HH:MM'), true);
+eq('prompt: 要点ブロックを指示', prompt.includes('【本日の要点】'), true);
+eq('prompt: 機微情報は※要確認へ回す指示', prompt.includes('※要確認'), true);
+eq('prompt: 議事録が無い予定の書き方を指示', prompt.includes('記録がなく'), true);
 eq('prompt: 日付が入る', prompt.includes('2026年09月09日(水)'), true);
+eq('prompt: 日本語以外の紛れ込みが無い', /[\u0400-\u04FF]/.test(prompt), false);
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
