@@ -116,7 +116,9 @@ eq('prompt: 機微情報は※要確認へ回す指示', prompt.includes('※要
 eq('prompt: 議事録が無い予定の書き方を指示', prompt.includes('記録がなく'), true);
 eq('prompt: 打ち合わせ先は実名で開示と指示', prompt.includes('カレンダーの予定に書かれているとおりに開示'), true);
 eq('prompt: 丸めを禁じる', prompt.includes('丸めてはいけない'), true);
-eq('prompt: 採用候補者は役割で書く例外を維持', prompt.includes('採用候補者との面接'), true);
+eq('prompt: 社員の氏名は開示してよい', prompt.includes('社員の氏名が入っていればそのまま書いてよい'), true);
+eq('prompt: 処遇の中身は要確認へ', prompt.includes('処遇・評価・給与などの内容は本文に書かず'), true);
+eq('prompt: 採用候補者だけは役割で書く', prompt.includes('採用候補者との面接'), true);
 eq('prompt: デスクワーク欄を指示', prompt.includes('■ デスクワーク'), true);
 eq('prompt: 宛先は社名粒度と指示', prompt.includes('社名・部署の粒度'), true);
 eq('prompt: 件名の羅列を禁じる', prompt.includes('件名をそのまま並べる'), true);
