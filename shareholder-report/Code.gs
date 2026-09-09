@@ -32,7 +32,8 @@ function sendDigestFor(dateStr) {
 function previewDigest() {
   var date = offsetDate_(new Date(), -CONFIG.DAY_OFFSET);
   var digest = buildDigest_(date);
-  Logger.log('予定 ' + digest.eventCount + ' 件 / 議事録 ' + digest.docCount + ' 本');
+  Logger.log('予定 ' + digest.eventCount + ' 件 / 議事録 ' + digest.docCount + ' 本' +
+    ' / 送信メール ' + digest.mailCount + ' 通');
   Logger.log(digest.body);
 }
 
@@ -41,7 +42,7 @@ function previewDigest() {
 function sendDigestForDate_(date) {
   var digest = buildDigest_(date);
 
-  if (digest.eventCount === 0 && !CONFIG.SEND_WHEN_EMPTY) {
+  if (digest.eventCount === 0 && digest.mailCount === 0 && !CONFIG.SEND_WHEN_EMPTY) {
     Logger.log(digest.dateLabel + ' は対象の予定が無かったため、メールを送信しませんでした。');
     return;
   }
@@ -50,7 +51,8 @@ function sendDigestForDate_(date) {
   GmailApp.sendEmail(to, '【日報素材】' + digest.dateLabel, digest.body);
   Logger.log(
     digest.dateLabel + ' の素材を ' + to + ' に送信しました' +
-    '（予定 ' + digest.eventCount + ' 件 / 議事録 ' + digest.docCount + ' 本）。'
+    '（予定 ' + digest.eventCount + ' 件 / 議事録 ' + digest.docCount + ' 本' +
+    ' / 送信メール ' + digest.mailCount + ' 通）。'
   );
 }
 
@@ -86,8 +88,18 @@ function buildDigest_(date) {
     lines.push('');
   }
 
-  if (events.length === 0 && orphans.length === 0) {
-    lines.push('（この日は対象となる予定・議事録がありませんでした）');
+  var mails = CONFIG.INCLUDE_SENT_MAIL ? collectSentMail_(dayStart, dayEnd) : [];
+  if (mails.length > 0) {
+    lines.push('## 送信メール（デスクワークの記録）');
+    lines.push('この日 ' + mails.length + ' 通を送信。');
+    for (var m = 0; m < mails.length; m++) {
+      lines.push(formatMailLine_(mails[m]));
+    }
+    lines.push('');
+  }
+
+  if (events.length === 0 && orphans.length === 0 && mails.length === 0) {
+    lines.push('（この日は対象となる予定・議事録・送信メールがありませんでした）');
     lines.push('');
   }
 
@@ -103,7 +115,8 @@ function buildDigest_(date) {
     dateLabel: dateLabel,
     body: body,
     eventCount: events.length,
-    docCount: docCount
+    docCount: docCount,
+    mailCount: mails.length
   };
 }
 
@@ -299,6 +312,59 @@ function isGoogleDoc_(mimeType) {
   return mimeType === 'application/vnd.google-apps.document';
 }
 
+// ── 送信メール ──────────────────────────────────────
+
+/**
+ * その日に自分が送信したメールを集める。
+ * 「何時に誰へ、どんな用件を送ったか」を、会議に現れないデスクワークの記録として使う。
+ * @return {Array<{sentAt: Date, to: string, cc: number, subject: string, body: string}>}
+ */
+function collectSentMail_(dayStart, dayEnd) {
+  var myEmail = (Session.getActiveUser().getEmail() || '').toLowerCase();
+
+  // Gmail の after:/before: は秒単位の epoch を受け付ける。日付表記と違いタイムゾーンがずれない。
+  var query = 'in:sent after:' + Math.floor(dayStart.getTime() / 1000) +
+    ' before:' + Math.floor(dayEnd.getTime() / 1000);
+  if (CONFIG.MAIL_EXCLUDE_QUERY) query += ' ' + CONFIG.MAIL_EXCLUDE_QUERY;
+
+  var threads;
+  try {
+    threads = GmailApp.search(query, 0, CONFIG.MAIL_MAX_COUNT);
+  } catch (e) {
+    Logger.log('送信メールを読めませんでした: ' + e.message);
+    return [];
+  }
+
+  var mails = [];
+  for (var t = 0; t < threads.length; t++) {
+    var messages = threads[t].getMessages();
+    for (var i = 0; i < messages.length; i++) {
+      var message = messages[i];
+      var sentAt = message.getDate();
+      if (sentAt < dayStart || sentAt >= dayEnd) continue;            // 同一スレッドの別日分を除く
+      if (message.getFrom().toLowerCase().indexOf(myEmail) === -1) continue; // 相手の返信を除く
+
+      mails.push({
+        sentAt: sentAt,
+        to: message.getTo(),
+        cc: countAddresses_(message.getCc()),
+        subject: message.getSubject() || '(件名なし)',
+        body: CONFIG.MAIL_BODY_CHARS > 0
+          ? truncate_(message.getPlainBody().replace(/\r\n/g, '\n').trim(), CONFIG.MAIL_BODY_CHARS, '…')
+          : ''
+      });
+    }
+  }
+
+  mails.sort(function (a, b) { return a.sentAt - b.sentAt; });
+  return mails.slice(0, CONFIG.MAIL_MAX_COUNT);
+}
+
+function countAddresses_(headerValue) {
+  if (!headerValue) return 0;
+  return headerValue.split(',').filter(function (part) { return part.trim() !== ''; }).length;
+}
+
 // ── 整形 ────────────────────────────────────────────
 
 function formatEventBlock_(index, event, docs) {
@@ -344,6 +410,14 @@ function formatDocBlock_(doc) {
   }
 
   return lines.join('\n');
+}
+
+function formatMailLine_(mail) {
+  var line = '- ' + formatDate_(mail.sentAt, 'HH:mm') + ' 宛先: ' + mail.to;
+  if (mail.cc > 0) line += '（CC ' + mail.cc + '名）';
+  line += ' / 件名: ' + mail.subject;
+  if (mail.body) line += '\n  ' + mail.body.replace(/\n/g, '\n  ');
+  return line;
 }
 
 function formatTimeRange_(event) {

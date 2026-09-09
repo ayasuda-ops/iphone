@@ -1,5 +1,8 @@
 // GAS を使わずに、素材の整形ロジックだけを Node で検証する。
 // 実行: node shareholder-report/test/run.js
+// GAS はスクリプトのタイムゾーン（Asia/Tokyo）で Date を解釈する。テストも同じ前提に揃える。
+process.env.TZ = 'Asia/Tokyo';
+
 const fs = require('fs'), vm = require('vm');
 
 // GAS グローバルの最小スタブ
@@ -83,6 +86,19 @@ eq('block: 議事録なしの明示', bare.includes('紐づく議事録は見つ
 eq('doc: 読み取り失敗時はリンク案内', ctx.formatDocBlock_({ name: 'x', url: 'https://u', text: null, source: '予定の添付' })
    .includes('本文を読み取れませんでした'), true);
 
+// formatMailLine_ : 送信メール1行
+const mailAt = new Date(2026, 8, 8, 9, 12);
+eq('mail: 時刻・宛先・件名', ctx.formatMailLine_({ sentAt: mailAt, to: 'a@x.com', cc: 0, subject: '見積の件' }),
+   '- 09:12 宛先: a@x.com / 件名: 見積の件');
+eq('mail: CC件数を添える', ctx.formatMailLine_({ sentAt: mailAt, to: 'a@x.com', cc: 2, subject: '件名' }).includes('（CC 2名）'), true);
+eq('mail: 本文はインデントして続ける', ctx.formatMailLine_({ sentAt: mailAt, to: 'a@x.com', cc: 0, subject: 's', body: '一行目\n二行目' }),
+   '- 09:12 宛先: a@x.com / 件名: s\n  一行目\n  二行目');
+
+// countAddresses_ : CC の人数
+eq('cc: 3件', ctx.countAddresses_('a@x.com, b@x.com, c@x.com'), 3);
+eq('cc: 空文字', ctx.countAddresses_(''), 0);
+eq('cc: 末尾カンマを数えない', ctx.countAddresses_('a@x.com, '), 1);
+
 // 日付ユーティリティ
 eq('date: startOfDay は 00:00', ctx.startOfDay_(new Date(2026, 8, 9, 23, 30)).getHours(), 0);
 eq('date: offsetDate は月をまたぐ', ctx.formatDate_(ctx.offsetDate_(new Date(2026, 8, 30), 1), 'yyyy-MM-dd'), '2026-10-01');
@@ -93,6 +109,9 @@ eq('prompt: 時系列の見出し形式を指示', prompt.includes('■ HH:MM-HH
 eq('prompt: 要点ブロックを指示', prompt.includes('【本日の要点】'), true);
 eq('prompt: 機微情報は※要確認へ回す指示', prompt.includes('※要確認'), true);
 eq('prompt: 議事録が無い予定の書き方を指示', prompt.includes('記録がなく'), true);
+eq('prompt: デスクワーク欄を指示', prompt.includes('■ デスクワーク'), true);
+eq('prompt: 宛先は社名粒度と指示', prompt.includes('社名・部署の粒度'), true);
+eq('prompt: 件名の羅列を禁じる', prompt.includes('件名をそのまま並べる'), true);
 eq('prompt: 日付が入る', prompt.includes('2026年09月09日(水)'), true);
 eq('prompt: 日本語以外の紛れ込みが無い', /[\u0400-\u04FF]/.test(prompt), false);
 
