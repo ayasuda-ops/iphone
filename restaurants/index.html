@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<meta name="theme-color" content="#1a0f0a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="友メシ帳">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon.svg">
+<title>友メシ帳 — 友達おすすめレストラン</title>
+<style>
+  :root{
+    --bg:#1a0f0a; --bg2:#24150e; --card:#2b1a12; --card2:#352218;
+    --line:#46301f; --txt:#fbf1e6; --sub:#d0b59a; --mut:#9c8168;
+    --acc:#ff7a3d; --acc2:#ffb347; --ok:#3ecf8e; --warn:#ff5d5d; --gold:#ffc84a; --link:#ffa06b;
+    --r:16px; --sh:0 6px 24px rgba(0,0,0,.35);
+  }
+  @media (prefers-color-scheme: light){
+    :root{ --bg:#fff7ef; --bg2:#fdeee0; --card:#ffffff; --card2:#fff3e8;
+      --line:#f0dcc8; --txt:#2a1a10; --sub:#7a5a42; --mut:#a88b72; --link:#d95b1f; --sh:0 6px 20px rgba(120,70,30,.10);}
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
+  html,body{margin:0}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Segoe UI",Roboto,sans-serif;
+    background:linear-gradient(180deg,var(--bg),var(--bg2)); color:var(--txt);
+    min-height:100vh; padding-bottom:calc(76px + env(safe-area-inset-bottom));
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:520px; margin:0 auto; padding:calc(14px + env(safe-area-inset-top)) 14px 0}
+  header.app{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:8px 2px 12px}
+  header.app .logo{display:flex; align-items:center; gap:9px; font-weight:800; font-size:18px}
+  header.app .logo .dot{width:26px;height:26px;border-radius:8px;
+    background:linear-gradient(135deg,var(--acc),var(--acc2)); display:grid; place-items:center; color:#fff; font-size:15px}
+  .pill{font-size:12px; color:var(--sub); background:var(--card); border:1px solid var(--line);
+    padding:6px 11px; border-radius:999px; white-space:nowrap}
+  .pill b{color:var(--gold)}
+
+  .card{background:var(--card); border:1px solid var(--line); border-radius:var(--r);
+    padding:15px; margin-bottom:13px; box-shadow:var(--sh)}
+  .card h2{margin:0 0 12px; font-size:14px; letter-spacing:.02em; color:var(--sub); font-weight:700; text-transform:uppercase}
+  .row{display:flex; gap:10px}
+  .grid2{display:grid; grid-template-columns:1fr 1fr; gap:11px}
+  .grid3{display:grid; grid-template-columns:1fr 1fr 1fr; gap:9px}
+
+  .stat{background:var(--card2); border:1px solid var(--line); border-radius:13px; padding:12px; cursor:pointer}
+  .stat .k{font-size:11px; color:var(--mut); font-weight:600}
+  .stat .v{font-size:22px; font-weight:800; margin-top:3px; line-height:1.1}
+  .stat .v small{font-size:12px; color:var(--sub); font-weight:600}
+
+  label{display:block; font-size:12px; color:var(--sub); font-weight:700; margin:10px 0 5px}
+  input,select,textarea{width:100%; background:var(--card2); border:1px solid var(--line); color:var(--txt);
+    border-radius:12px; padding:12px 13px; font-size:16px; outline:none; font-family:inherit}
+  input:focus,select:focus,textarea:focus{border-color:var(--acc)}
+  textarea{min-height:76px; resize:vertical; line-height:1.5}
+  select{appearance:none; -webkit-appearance:none;
+    background-image:linear-gradient(45deg,transparent 50%,var(--sub) 50%),linear-gradient(135deg,var(--sub) 50%,transparent 50%);
+    background-position:calc(100% - 20px) 50%,calc(100% - 14px) 50%; background-size:6px 6px; background-repeat:no-repeat}
+  .btn{width:100%; padding:14px; border-radius:13px; border:none; font-weight:800; font-size:15px; cursor:pointer;
+    background:linear-gradient(135deg,var(--acc),var(--acc2)); color:#fff; margin-top:10px}
+  .btn.sec{background:var(--card2); color:var(--txt); border:1px solid var(--line)}
+  .btn.danger{background:transparent; color:var(--warn); border:1px solid var(--warn)}
+  .btn.ok{background:var(--ok); color:#0b2a1c}
+  .btn:active{transform:scale(.985)}
+  .btn.sm{padding:10px; font-size:13px; margin-top:0}
+
+  .search{display:flex; gap:8px; align-items:center; margin-bottom:10px}
+  .search input{padding:11px 13px; font-size:15px; border-radius:12px}
+  .search .dice{flex:none; width:46px; height:46px; border-radius:12px; border:1px solid var(--line);
+    background:var(--card); font-size:20px; cursor:pointer; color:var(--txt)}
+
+  .seg{display:flex; background:var(--card2); border:1px solid var(--line); border-radius:12px; padding:4px; gap:4px; margin-bottom:10px}
+  .seg button{flex:1; background:none; border:none; color:var(--sub); font-weight:700; font-size:13px;
+    padding:8px; border-radius:9px; cursor:pointer}
+  .seg button.on{background:var(--acc); color:#fff}
+
+  .chips{display:flex; gap:6px; overflow-x:auto; padding:2px 0 8px; -webkit-overflow-scrolling:touch; scrollbar-width:none}
+  .chips::-webkit-scrollbar{display:none}
+  .chip{flex:none; font-size:12px; font-weight:700; color:var(--sub); background:var(--card); border:1px solid var(--line);
+    padding:7px 12px; border-radius:999px; cursor:pointer; white-space:nowrap}
+  .chip.on{background:var(--acc); color:#fff; border-color:var(--acc)}
+  .sortrow{display:flex; justify-content:space-between; align-items:center; margin:2px 2px 10px; font-size:12px; color:var(--mut)}
+  .sortrow select{width:auto; font-size:12px; padding:6px 28px 6px 10px; border-radius:9px; color:var(--sub); font-weight:700}
+
+  .rs{background:var(--card); border:1px solid var(--line); border-radius:var(--r); padding:13px 14px; margin-bottom:10px;
+    box-shadow:var(--sh); cursor:pointer; display:flex; gap:12px; align-items:flex-start}
+  .rs .ic{flex:none; width:44px; height:44px; border-radius:12px; background:var(--card2); border:1px solid var(--line);
+    display:grid; place-items:center; font-size:22px}
+  .rs.done .ic{background:color-mix(in srgb,var(--ok) 18%,transparent); border-color:color-mix(in srgb,var(--ok) 45%,transparent)}
+  .rs .body{flex:1; min-width:0}
+  .rs .nm{font-size:16px; font-weight:800; line-height:1.25; display:flex; align-items:center; gap:6px; flex-wrap:wrap}
+  .rs .nm .tag{font-size:10px; font-weight:800; padding:2px 7px; border-radius:999px; background:var(--card2); border:1px solid var(--line); color:var(--sub)}
+  .rs .nm .tag.ok{background:color-mix(in srgb,var(--ok) 18%,transparent); color:var(--ok); border-color:transparent}
+  .rs .meta{font-size:12px; color:var(--sub); margin-top:4px; display:flex; gap:8px; flex-wrap:wrap}
+  .rs .meta span{white-space:nowrap}
+  .rs .memo{font-size:12.5px; color:var(--mut); margin-top:6px; line-height:1.45;
+    display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden}
+  .rs .by{font-size:11.5px; color:var(--acc2); font-weight:700; margin-top:6px}
+  .stars{color:var(--gold); font-size:12px; letter-spacing:1px}
+  .stars .off{color:var(--line)}
+  .empty{color:var(--mut); font-size:13px; text-align:center; padding:26px 0; line-height:1.7}
+
+  .fab{position:fixed; right:calc(16px + env(safe-area-inset-right)); bottom:calc(86px + env(safe-area-inset-bottom)); z-index:60;
+    width:56px; height:56px; border-radius:50%; border:none; color:#fff; font-size:30px; line-height:1; cursor:pointer;
+    background:linear-gradient(135deg,var(--acc),var(--acc2)); box-shadow:0 8px 22px rgba(255,122,61,.45)}
+  .fab:active{transform:scale(.94)}
+
+  nav.tabs{position:fixed; left:0; right:0; bottom:0; z-index:50;
+    background:color-mix(in srgb,var(--card) 92%, transparent); backdrop-filter:blur(14px);
+    border-top:1px solid var(--line); display:flex; padding:8px 6px calc(8px + env(safe-area-inset-bottom))}
+  nav.tabs button{flex:1; background:none; border:none; color:var(--mut); font-size:10px; font-weight:700;
+    display:flex; flex-direction:column; align-items:center; gap:3px; padding:5px 0; cursor:pointer}
+  nav.tabs button .g{font-size:20px; line-height:1}
+  nav.tabs button.on{color:var(--acc)}
+
+  .view{display:none} .view.on{display:block; animation:f .25s ease}
+  @keyframes f{from{opacity:0;transform:translateY(6px)}to{opacity:1}}
+
+  .modal{position:fixed; inset:0; z-index:100; background:rgba(10,4,2,.62); display:none;
+    align-items:flex-end; justify-content:center}
+  .modal.on{display:flex}
+  .sheet{background:var(--card); border-radius:20px 20px 0 0; width:100%; max-width:520px;
+    padding:18px 16px calc(18px + env(safe-area-inset-bottom)); max-height:90vh; overflow:auto;
+    border:1px solid var(--line); animation:up .28s ease}
+  @keyframes up{from{transform:translateY(100%)}to{transform:translateY(0)}}
+  .sheet h3{margin:2px 0 14px; font-size:17px}
+  .sheet .grab{width:38px;height:4px;background:var(--line);border-radius:2px;margin:0 auto 14px}
+  .sheet .x{position:absolute; right:18px; top:16px; width:30px; height:30px; border-radius:50%; border:none;
+    background:var(--card2); color:var(--sub); font-size:16px; cursor:pointer}
+  .sheet{position:relative}
+
+  .rate{display:flex; gap:6px; margin-top:4px}
+  .rate button{flex:1; background:var(--card2); border:1px solid var(--line); border-radius:10px; font-size:22px; padding:8px 0; cursor:pointer; color:var(--line)}
+  .rate button.on{color:var(--gold); border-color:color-mix(in srgb,var(--gold) 50%,transparent)}
+  .switch{display:flex; justify-content:space-between; align-items:center; background:var(--card2); border:1px solid var(--line);
+    border-radius:12px; padding:11px 13px; margin-top:10px; font-size:14px; font-weight:700}
+  .switch input{width:auto; transform:scale(1.25); accent-color:var(--acc)}
+
+  .dt .title{font-size:22px; font-weight:800; line-height:1.25; margin-right:36px}
+  .dt .sub{font-size:13px; color:var(--sub); margin-top:5px; display:flex; gap:10px; flex-wrap:wrap}
+  .dt .by{margin-top:10px; font-size:13px; color:var(--acc2); font-weight:700}
+  .dt .box{background:var(--card2); border:1px solid var(--line); border-radius:12px; padding:11px 13px; margin-top:10px; font-size:14px; line-height:1.6; white-space:pre-wrap; word-break:break-word}
+  .dt .box .k{font-size:11px; color:var(--mut); font-weight:700; margin-bottom:3px}
+  .acts{display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; margin-top:12px}
+  .acts a,.acts button{display:flex; flex-direction:column; align-items:center; gap:4px; text-decoration:none; color:var(--txt);
+    background:var(--card2); border:1px solid var(--line); border-radius:12px; padding:10px 4px; font-size:11.5px; font-weight:700; cursor:pointer; font-family:inherit}
+  .acts .g{font-size:20px}
+
+  .fr{background:var(--card); border:1px solid var(--line); border-radius:var(--r); padding:13px 14px; margin-bottom:10px; box-shadow:var(--sh)}
+  .fr .h{display:flex; justify-content:space-between; align-items:center}
+  .fr .h .n{font-size:16px; font-weight:800}
+  .fr .h .c{font-size:12px; color:var(--sub); font-weight:700}
+  .fr ul{list-style:none; margin:8px 0 0; padding:0}
+  .fr li{display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-top:1px solid var(--line); font-size:14px; cursor:pointer}
+  .fr li .s{font-size:11px; color:var(--mut); font-weight:700}
+  .fr li .s.ok{color:var(--ok)}
+
+  .note{font-size:11.5px; color:var(--mut); line-height:1.5; margin-top:8px}
+  .toast{position:fixed;left:50%;bottom:96px;transform:translateX(-50%);background:var(--card2);
+    border:1px solid var(--line);color:var(--txt);padding:10px 16px;border-radius:12px;font-size:13px;font-weight:600;
+    box-shadow:var(--sh);z-index:200;opacity:0;transition:.25s;pointer-events:none;max-width:88vw;text-align:center}
+  .toast.on{opacity:1;bottom:104px}
+  a{color:var(--link)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="app">
+    <div class="logo"><span class="dot">🍽️</span> 友メシ帳</div>
+    <div class="pill" id="hdrPill">0 件</div>
+  </header>
+
+  <!-- ================= LIST ================= -->
+  <section class="view on" id="v-list">
+    <div class="grid3" style="margin-bottom:12px">
+      <div class="stat" data-quick="want"><div class="k">行きたい</div><div class="v" id="stWant">0</div></div>
+      <div class="stat" data-quick="done"><div class="k">行った</div><div class="v" id="stDone">0</div></div>
+      <div class="stat" data-quick="friends"><div class="k">友達</div><div class="v" id="stFriends">0<small> 人</small></div></div>
+    </div>
+
+    <div class="search">
+      <input type="search" id="q" placeholder="店名・エリア・メモ・友達で検索" autocomplete="off">
+      <button class="dice" id="diceBtn" title="行きたい店からランダムに1軒選ぶ">🎲</button>
+    </div>
+    <div class="seg" id="segStatus">
+      <button class="on" data-s="all">すべて</button>
+      <button data-s="want">行きたい</button>
+      <button data-s="done">行った</button>
+    </div>
+    <div class="chips" id="chipGenre"></div>
+    <div class="chips" id="chipFriend"></div>
+    <div class="sortrow">
+      <span id="cnt"></span>
+      <select id="sort">
+        <option value="new">追加が新しい順</option>
+        <option value="name">店名順</option>
+        <option value="area">エリア順</option>
+        <option value="rating">評価が高い順</option>
+        <option value="visit">訪問日が新しい順</option>
+      </select>
+    </div>
+    <div id="list"></div>
+  </section>
+
+  <!-- ================= FRIENDS ================= -->
+  <section class="view" id="v-friends">
+    <div class="card" style="padding:12px 14px">
+      <div style="font-size:13px;color:var(--sub);line-height:1.6">友達ごとに、教えてもらったお店をまとめて表示します。名前をタップすると詳細を開けます。</div>
+    </div>
+    <div id="friends"></div>
+  </section>
+
+  <!-- ================= SETTINGS ================= -->
+  <section class="view" id="v-set">
+    <div class="card">
+      <h2>地図アプリ</h2>
+      <div class="seg" id="segMap" style="margin-bottom:0">
+        <button data-m="apple">Apple マップ</button>
+        <button data-m="google">Google マップ</button>
+      </div>
+      <div class="note">お店の詳細から「地図」を開くときに使うアプリ。店名とエリアで検索します。</div>
+    </div>
+
+    <div class="card">
+      <h2>食べログ</h2>
+      <div class="note" style="margin-top:0">
+        食べログには公開 API がないため、このアプリからお店の情報やレビューを自動取得することはできません。<br>
+        食べログの店舗ページ URL を登録しておくと「食べログ」ボタンで直接開けます。URL 未登録なら店名＋エリアで食べログ検索を開きます。
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>バックアップ</h2>
+      <div class="note" style="margin-top:0">データはこの端末のブラウザ内にのみ保存されます。機種変更やバックアップには JSON のエクスポート／インポートを使ってください。<br>
+        <b>iCloud に残す手順：</b>「エクスポート」→ 共有シートで「<b>ファイルに保存</b>」→ iCloud Drive の好きなフォルダを選択。</div>
+      <div style="height:10px"></div>
+      <div class="row">
+        <button class="btn sec" id="expBtn">エクスポート(JSON)</button>
+        <button class="btn sec" id="impBtn">インポート</button>
+      </div>
+      <input type="file" id="impFile" accept="application/json" style="display:none">
+      <div class="note" id="lastBackup"></div>
+      <div style="height:10px"></div>
+      <button class="btn danger" id="wipeBtn">全データを削除</button>
+    </div>
+    <div class="note" style="text-align:center;padding:10px 0 4px">
+      iPhoneでの使い方: Safariで開く → 共有 → 「ホーム画面に追加」でアプリのように使えます。
+    </div>
+  </section>
+</div>
+
+<button class="fab" id="fab" title="お店を追加">＋</button>
+
+<nav class="tabs">
+  <button class="on" data-v="list"><span class="g">🍽️</span>リスト</button>
+  <button data-v="friends"><span class="g">👥</span>友達</button>
+  <button data-v="set"><span class="g">⚙️</span>設定</button>
+</nav>
+
+<!-- ================= EDIT SHEET ================= -->
+<div class="modal" id="mEdit">
+  <div class="sheet">
+    <div class="grab"></div>
+    <button class="x" data-close="mEdit">✕</button>
+    <h3 id="editTitle">お店を追加</h3>
+    <label>店名 <span style="color:var(--acc)">*</span></label>
+    <input id="fName" placeholder="例: 鮨 さいとう" autocomplete="off">
+    <div class="grid2">
+      <div>
+        <label>ジャンル</label>
+        <input id="fGenre" list="dlGenre" placeholder="例: 寿司" autocomplete="off">
+        <datalist id="dlGenre"></datalist>
+      </div>
+      <div>
+        <label>エリア</label>
+        <input id="fArea" list="dlArea" placeholder="例: 六本木" autocomplete="off">
+        <datalist id="dlArea"></datalist>
+      </div>
+    </div>
+    <label>教えてくれた友達</label>
+    <input id="fFriend" list="dlFriend" placeholder="例: 田中" autocomplete="off">
+    <datalist id="dlFriend"></datalist>
+    <label>おすすめポイント・メモ</label>
+    <textarea id="fMemo" placeholder="例: ランチのコースがコスパ最高。要予約。"></textarea>
+    <div class="grid2">
+      <div>
+        <label>予算（1人）</label>
+        <select id="fBudget">
+          <option value="">未設定</option>
+          <option value="〜¥1,000">〜¥1,000</option>
+          <option value="¥1,000〜3,000">¥1,000〜3,000</option>
+          <option value="¥3,000〜5,000">¥3,000〜5,000</option>
+          <option value="¥5,000〜10,000">¥5,000〜10,000</option>
+          <option value="¥10,000〜">¥10,000〜</option>
+        </select>
+      </div>
+      <div>
+        <label>電話番号</label>
+        <input id="fPhone" type="tel" placeholder="任意" autocomplete="off">
+      </div>
+    </div>
+    <label>食べログ URL</label>
+    <input id="fUrl" type="url" placeholder="https://tabelog.com/..." autocomplete="off" inputmode="url">
+    <div class="note" style="margin-top:4px">食べログアプリの「共有」→「コピー」で取得した URL を貼り付け。</div>
+
+    <div class="switch"><span>✅ もう行った</span><input type="checkbox" id="fVisited"></div>
+    <div id="visitBox" style="display:none">
+      <label>訪問日</label>
+      <input id="fDate" type="date">
+      <label>自分の評価</label>
+      <div class="rate" id="rate">
+        <button data-r="1">★</button><button data-r="2">★</button><button data-r="3">★</button><button data-r="4">★</button><button data-r="5">★</button>
+      </div>
+      <label>感想</label>
+      <textarea id="fReview" placeholder="例: 期待以上。次は夜に来たい。"></textarea>
+    </div>
+
+    <button class="btn" id="saveBtn">保存</button>
+    <button class="btn danger" id="delBtn" style="display:none">このお店を削除</button>
+  </div>
+</div>
+
+<!-- ================= DETAIL SHEET ================= -->
+<div class="modal" id="mDetail">
+  <div class="sheet dt">
+    <div class="grab"></div>
+    <button class="x" data-close="mDetail">✕</button>
+    <div id="detail"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============================ Storage ============================ */
+const KEY={items:'rm_items', settings:'rm_settings', lastBackup:'rm_lastBackup'};
+const load=(k,d)=>{ try{ const v=localStorage.getItem(k); return v?JSON.parse(v):d; }catch(e){ return d; } };
+let items=load(KEY.items,[]);
+let settings=Object.assign({map:'apple'}, load(KEY.settings,{}));
+const saveI=()=>localStorage.setItem(KEY.items, JSON.stringify(items));
+const saveS=()=>localStorage.setItem(KEY.settings, JSON.stringify(settings));
+
+const GENRES=['和食','寿司','焼肉','焼鳥','ラーメン','うどん・そば','中華','イタリアン','フレンチ','洋食','カレー','韓国料理','エスニック','居酒屋','バー','カフェ','スイーツ','パン','その他'];
+
+/* ============================ Utils ============================ */
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+const todayStr=()=>{ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); };
+const fmtDate=s=>{ if(!s)return ''; const [y,m,d]=s.split('-'); return `${y}/${+m}/${+d}`; };
+let toastT; function toast(m){ const t=$('toast'); t.textContent=m; t.classList.add('on'); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('on'),1800); }
+const stars=n=>{ n=+n||0; let s=''; for(let i=1;i<=5;i++) s+=`<span class="${i<=n?'':'off'}">★</span>`; return `<span class="stars">${s}</span>`; };
+const normUrl=u=>{ u=(u||'').trim(); if(!u)return ''; if(!/^https?:\/\//i.test(u)) u='https://'+u; return u; };
+
+function tabelogUrl(it){
+  if(it.url) return it.url;
+  const p=new URLSearchParams(); p.set('sk', it.name); if(it.area) p.set('sa', it.area);
+  return 'https://tabelog.com/rstLst/?'+p.toString();
+}
+function mapUrl(it){
+  const q=encodeURIComponent([it.name, it.area].filter(Boolean).join(' '));
+  return settings.map==='google' ? 'https://www.google.com/maps/search/?api=1&query='+q : 'https://maps.apple.com/?q='+q;
+}
+function shareText(it){
+  const l=[`【${it.name}】`];
+  const m=[it.genre, it.area, it.budget].filter(Boolean).join(' / '); if(m) l.push(m);
+  if(it.friend) l.push(`紹介: ${it.friend}`);
+  if(it.memo) l.push(it.memo);
+  if(it.visited && it.rating) l.push('評価: '+'★'.repeat(it.rating));
+  l.push(tabelogUrl(it));
+  return l.join('\n');
+}
+
+/* ============================ State ============================ */
+let filter={status:'all', genre:'', friend:'', q:'', sort:'new'};
+
+function friendsOf(list){ const m={}; list.forEach(i=>{ if(i.friend) m[i.friend]=(m[i.friend]||0)+1; }); return m; }
+function uniq(arr){ return [...new Set(arr.filter(Boolean))]; }
+
+function filtered(){
+  const q=filter.q.trim().toLowerCase();
+  let r=items.filter(i=>{
+    if(filter.status==='want' && i.visited) return false;
+    if(filter.status==='done' && !i.visited) return false;
+    if(filter.genre && i.genre!==filter.genre) return false;
+    if(filter.friend && i.friend!==filter.friend) return false;
+    if(q){ const h=[i.name,i.genre,i.area,i.friend,i.memo,i.review].join(' ').toLowerCase(); if(!h.includes(q)) return false; }
+    return true;
+  });
+  const c=(a,b)=>String(a||'').localeCompare(String(b||''),'ja');
+  switch(filter.sort){
+    case 'name': r.sort((a,b)=>c(a.name,b.name)); break;
+    case 'area': r.sort((a,b)=>c(a.area,b.area)||c(a.name,b.name)); break;
+    case 'rating': r.sort((a,b)=>((b.rating||0)-(a.rating||0))||((b.createdAt||0)-(a.createdAt||0))); break;
+    case 'visit': r.sort((a,b)=>c(b.visitDate,a.visitDate)||((b.createdAt||0)-(a.createdAt||0))); break;
+    default: r.sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
+  }
+  return r;
+}
+
+/* ============================ Render ============================ */
+function render(){
+  const want=items.filter(i=>!i.visited).length, done=items.length-want;
+  const fr=friendsOf(items);
+  $('stWant').textContent=want; $('stDone').textContent=done;
+  $('stFriends').innerHTML=Object.keys(fr).length+'<small> 人</small>';
+  $('hdrPill').innerHTML=`<b>${items.length}</b> 件`;
+
+  // chips
+  const genres=uniq(items.map(i=>i.genre)).sort((a,b)=>a.localeCompare(b,'ja'));
+  const friends=Object.keys(fr).sort((a,b)=>fr[b]-fr[a]);
+  if(filter.genre && !genres.includes(filter.genre)) filter.genre='';
+  if(filter.friend && !friends.includes(filter.friend)) filter.friend='';
+  $('chipGenre').innerHTML= genres.length ? [`<button class="chip ${filter.genre?'':'on'}" data-g="">全ジャンル</button>`]
+    .concat(genres.map(g=>`<button class="chip ${filter.genre===g?'on':''}" data-g="${esc(g)}">${esc(g)}</button>`)).join('') : '';
+  $('chipFriend').innerHTML= friends.length ? [`<button class="chip ${filter.friend?'':'on'}" data-f="">全員</button>`]
+    .concat(friends.map(f=>`<button class="chip ${filter.friend===f?'on':''}" data-f="${esc(f)}">👤 ${esc(f)}</button>`)).join('') : '';
+  $('chipGenre').style.display=genres.length?'':'none';
+  $('chipFriend').style.display=friends.length?'':'none';
+
+  // list
+  const r=filtered();
+  $('cnt').textContent=items.length? `${r.length} 件表示` : '';
+  if(!items.length){
+    $('list').innerHTML=`<div class="empty">まだお店がありません。<br>右下の「＋」から、友達に教えてもらったお店を追加しましょう。</div>`;
+  }else if(!r.length){
+    $('list').innerHTML=`<div class="empty">条件に合うお店がありません。</div>`;
+  }else{
+    $('list').innerHTML=r.map(i=>`
+      <div class="rs ${i.visited?'done':''}" data-open="${i.id}">
+        <div class="ic">${i.visited?'✅':'📍'}</div>
+        <div class="body">
+          <div class="nm">${esc(i.name)} ${i.visited?`<span class="tag ok">行った</span>`:`<span class="tag">行きたい</span>`}</div>
+          <div class="meta">
+            ${i.genre?`<span>🍴 ${esc(i.genre)}</span>`:''}
+            ${i.area?`<span>📍 ${esc(i.area)}</span>`:''}
+            ${i.budget?`<span>💴 ${esc(i.budget)}</span>`:''}
+            ${i.visited&&i.rating?stars(i.rating):''}
+          </div>
+          ${i.memo?`<div class="memo">${esc(i.memo)}</div>`:''}
+          ${i.friend?`<div class="by">👤 ${esc(i.friend)} のおすすめ</div>`:''}
+        </div>
+      </div>`).join('');
+  }
+
+  // friends view
+  const fv=$('friends');
+  if(!friends.length){
+    fv.innerHTML=`<div class="empty">まだ友達が登録されていません。<br>お店を追加するときに「教えてくれた友達」を入力すると、ここにまとまります。</div>`;
+  }else{
+    fv.innerHTML=friends.map(f=>{
+      const l=items.filter(i=>i.friend===f).sort((a,b)=>(a.visited?1:0)-(b.visited?1:0)||(b.createdAt||0)-(a.createdAt||0));
+      const d=l.filter(i=>i.visited).length;
+      return `<div class="fr">
+        <div class="h"><div class="n">👤 ${esc(f)}</div><div class="c">${l.length} 軒 ・ 行った ${d}</div></div>
+        <ul>${l.map(i=>`<li data-open="${i.id}"><span>${esc(i.name)}${i.area?` <span style="color:var(--mut);font-size:12px">${esc(i.area)}</span>`:''}</span>
+          <span class="s ${i.visited?'ok':''}">${i.visited?(i.rating?'★'.repeat(i.rating):'行った'):'行きたい'}</span></li>`).join('')}</ul>
+      </div>`;
+    }).join('');
+  }
+
+  // datalists
+  $('dlGenre').innerHTML=uniq(GENRES.concat(genres)).map(g=>`<option value="${esc(g)}">`).join('');
+  $('dlArea').innerHTML=uniq(items.map(i=>i.area)).map(a=>`<option value="${esc(a)}">`).join('');
+  $('dlFriend').innerHTML=friends.map(f=>`<option value="${esc(f)}">`).join('');
+
+  // settings
+  document.querySelectorAll('#segMap button').forEach(b=>b.classList.toggle('on', b.dataset.m===settings.map));
+  const lb=localStorage.getItem(KEY.lastBackup);
+  $('lastBackup').textContent= lb ? `最終バックアップ: ${fmtDate(lb)}` : (items.length? '' : '');
+}
+
+/* ============================ Tab nav ============================ */
+document.querySelectorAll('nav.tabs button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('nav.tabs button').forEach(x=>x.classList.remove('on'));
+  document.querySelectorAll('.view').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on'); $('v-'+b.dataset.v).classList.add('on');
+  $('fab').style.display = b.dataset.v==='set' ? 'none' : '';
+  window.scrollTo(0,0);
+});
+function goTab(v){ document.querySelector(`nav.tabs button[data-v="${v}"]`).click(); }
+
+/* ============================ Filters ============================ */
+$('q').oninput=e=>{ filter.q=e.target.value; render(); };
+$('sort').onchange=e=>{ filter.sort=e.target.value; render(); };
+document.querySelectorAll('#segStatus button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('#segStatus button').forEach(x=>x.classList.remove('on')); b.classList.add('on');
+  filter.status=b.dataset.s; render();
+});
+$('chipGenre').onclick=e=>{ const c=e.target.closest('.chip'); if(!c)return; filter.genre=c.dataset.g; render(); };
+$('chipFriend').onclick=e=>{ const c=e.target.closest('.chip'); if(!c)return; filter.friend=c.dataset.f; render(); };
+document.querySelectorAll('.stat[data-quick]').forEach(s=>s.onclick=()=>{
+  const k=s.dataset.quick;
+  if(k==='friends'){ goTab('friends'); return; }
+  document.querySelector(`#segStatus button[data-s="${k}"]`).click();
+});
+
+/* ============================ Modal helpers ============================ */
+function openM(id){ $(id).classList.add('on'); document.body.style.overflow='hidden'; }
+function closeM(id){ $(id).classList.remove('on'); if(!document.querySelector('.modal.on')) document.body.style.overflow=''; }
+document.querySelectorAll('.modal').forEach(m=>m.addEventListener('click',e=>{ if(e.target===m) closeM(m.id); }));
+document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>closeM(b.dataset.close));
+
+/* ============================ Edit sheet ============================ */
+let editId=null, rating=0;
+function setRating(n){ rating=n; document.querySelectorAll('#rate button').forEach(b=>b.classList.toggle('on', +b.dataset.r<=n)); }
+document.querySelectorAll('#rate button').forEach(b=>b.onclick=()=>setRating(+b.dataset.r===rating?0:+b.dataset.r));
+$('fVisited').onchange=()=>{ $('visitBox').style.display=$('fVisited').checked?'':'none'; if($('fVisited').checked && !$('fDate').value) $('fDate').value=todayStr(); };
+
+function openEdit(id){
+  editId=id||null;
+  const it=id? items.find(x=>x.id===id) : null;
+  $('editTitle').textContent= it? 'お店を編集' : 'お店を追加';
+  $('fName').value=it?.name||''; $('fGenre').value=it?.genre||''; $('fArea').value=it?.area||'';
+  $('fFriend').value=it?.friend||''; $('fMemo').value=it?.memo||''; $('fBudget').value=it?.budget||'';
+  $('fPhone').value=it?.phone||''; $('fUrl').value=it?.url||'';
+  $('fVisited').checked=!!it?.visited; $('fDate').value=it?.visitDate||''; $('fReview').value=it?.review||'';
+  setRating(it?.rating||0);
+  $('visitBox').style.display=$('fVisited').checked?'':'none';
+  $('delBtn').style.display= it? '' : 'none';
+  if(!it && filter.friend) $('fFriend').value=filter.friend;
+  if(!it && filter.genre) $('fGenre').value=filter.genre;
+  openM('mEdit');
+  if(!it) setTimeout(()=>$('fName').focus(),300);
+}
+$('fab').onclick=()=>openEdit(null);
+
+$('saveBtn').onclick=()=>{
+  const name=$('fName').value.trim();
+  if(!name){ toast('店名を入力してください'); $('fName').focus(); return; }
+  const url=normUrl($('fUrl').value);
+  const visited=$('fVisited').checked;
+  const data={
+    name, genre:$('fGenre').value.trim(), area:$('fArea').value.trim(), friend:$('fFriend').value.trim(),
+    memo:$('fMemo').value.trim(), budget:$('fBudget').value, phone:$('fPhone').value.trim(), url,
+    visited, visitDate: visited? ($('fDate').value||todayStr()) : '', rating: visited? rating : 0,
+    review: visited? $('fReview').value.trim() : '', updatedAt:Date.now()
+  };
+  if(editId){
+    const i=items.findIndex(x=>x.id===editId); if(i>=0) items[i]=Object.assign({},items[i],data);
+  }else{
+    items.push(Object.assign({id:uid(), createdAt:Date.now()}, data));
+  }
+  saveI(); render(); closeM('mEdit'); toast(editId?'更新しました':'追加しました');
+  if(!editId && filter.status==='done' && !visited){ document.querySelector('#segStatus button[data-s="all"]').click(); }
+};
+$('delBtn').onclick=()=>{
+  if(!editId) return; const it=items.find(x=>x.id===editId);
+  if(!confirm(`「${it?.name||''}」を削除しますか？`)) return;
+  items=items.filter(x=>x.id!==editId); saveI(); render(); closeM('mEdit'); closeM('mDetail'); toast('削除しました');
+};
+
+/* ============================ Detail sheet ============================ */
+let detailId=null;
+function openDetail(id, headline){
+  const it=items.find(x=>x.id===id); if(!it) return;
+  detailId=id;
+  const tel=it.phone? it.phone.replace(/[^\d+]/g,'') : '';
+  $('detail').innerHTML=`
+    ${headline?`<div style="font-size:12px;color:var(--acc2);font-weight:800;margin-bottom:6px">${esc(headline)}</div>`:''}
+    <div class="title">${esc(it.name)}</div>
+    <div class="sub">
+      ${it.genre?`<span>🍴 ${esc(it.genre)}</span>`:''}
+      ${it.area?`<span>📍 ${esc(it.area)}</span>`:''}
+      ${it.budget?`<span>💴 ${esc(it.budget)}</span>`:''}
+    </div>
+    ${it.friend?`<div class="by">👤 ${esc(it.friend)} のおすすめ</div>`:''}
+    ${it.memo?`<div class="box"><div class="k">おすすめポイント・メモ</div>${esc(it.memo)}</div>`:''}
+    ${it.visited?`<div class="box"><div class="k">訪問記録 ${it.visitDate?'・ '+fmtDate(it.visitDate):''}</div>${it.rating?stars(it.rating):'<span style="color:var(--mut)">評価なし</span>'}${it.review?`<div style="margin-top:6px">${esc(it.review)}</div>`:''}</div>`:''}
+    <div class="acts">
+      <a href="${esc(tabelogUrl(it))}" target="_blank" rel="noopener"><span class="g">🔎</span>${it.url?'食べログ':'食べログ検索'}</a>
+      <a href="${esc(mapUrl(it))}" target="_blank" rel="noopener"><span class="g">🗺️</span>地図</a>
+      ${tel?`<a href="tel:${esc(tel)}"><span class="g">📞</span>電話</a>`:`<button data-act="share"><span class="g">📤</span>共有</button>`}
+    </div>
+    <div class="acts" style="margin-top:8px">
+      ${tel?`<button data-act="share"><span class="g">📤</span>共有</button>`:''}
+      <button data-act="toggle"><span class="g">${it.visited?'↩️':'✅'}</span>${it.visited?'行きたいに戻す':'行った！'}</button>
+      <button data-act="edit"><span class="g">✏️</span>編集</button>
+      ${tel?'':`<button data-act="del" style="color:var(--warn)"><span class="g">🗑️</span>削除</button>`}
+    </div>
+    ${tel?`<button class="btn danger" data-act="del" style="margin-top:10px">このお店を削除</button>`:''}
+  `;
+  openM('mDetail');
+}
+$('detail').onclick=async e=>{
+  const b=e.target.closest('[data-act]'); if(!b) return;
+  const it=items.find(x=>x.id===detailId); if(!it) return;
+  const act=b.dataset.act;
+  if(act==='edit'){ closeM('mDetail'); openEdit(it.id); }
+  else if(act==='toggle'){
+    if(it.visited){ it.visited=false; it.visitDate=''; it.rating=0; it.review=''; it.updatedAt=Date.now(); saveI(); render(); openDetail(it.id); toast('「行きたい」に戻しました'); }
+    else { it.visited=true; it.visitDate=todayStr(); it.updatedAt=Date.now(); saveI(); render(); closeM('mDetail'); openEdit(it.id); toast('評価と感想を記録できます'); }
+  }
+  else if(act==='del'){
+    if(!confirm(`「${it.name}」を削除しますか？`)) return;
+    items=items.filter(x=>x.id!==it.id); saveI(); render(); closeM('mDetail'); toast('削除しました');
+  }
+  else if(act==='share'){
+    const text=shareText(it);
+    try{
+      if(navigator.share){ await navigator.share({title:it.name, text}); return; }
+    }catch(err){ if(err && err.name==='AbortError') return; }
+    try{ await navigator.clipboard.writeText(text); toast('コピーしました'); }catch(e2){ toast('共有できませんでした'); }
+  }
+};
+document.body.addEventListener('click',e=>{
+  const el=e.target.closest('[data-open]'); if(!el) return;
+  openDetail(el.dataset.open);
+});
+
+/* ============================ Random pick ============================ */
+$('diceBtn').onclick=()=>{
+  let pool=filtered().filter(i=>!i.visited);
+  if(!pool.length) pool=items.filter(i=>!i.visited);
+  if(!pool.length){ toast('「行きたい」お店がありません'); return; }
+  const pick=pool[Math.floor(Math.random()*pool.length)];
+  openDetail(pick.id, '🎲 今日はここはどう？');
+};
+
+/* ============================ Settings ============================ */
+document.querySelectorAll('#segMap button').forEach(b=>b.onclick=()=>{ settings.map=b.dataset.m; saveS(); render(); });
+
+/* Export / Import / Wipe */
+async function doExport(){
+  const data={app:'tomomeshi', version:1, items, settings, exportedAt:new Date().toISOString()};
+  const json=JSON.stringify(data,null,2);
+  const fname='tomomeshi-backup-'+todayStr()+'.json';
+  const markDone=()=>{ localStorage.setItem(KEY.lastBackup, todayStr()); render(); };
+  try{
+    const file=new File([json], fname, {type:'application/json'});
+    if(navigator.canShare && navigator.canShare({files:[file]})){
+      await navigator.share({files:[file], title:'友メシ帳 バックアップ'});
+      markDone(); toast('保存先を選んで完了'); return;
+    }
+  }catch(err){
+    if(err && err.name==='AbortError'){ return; }
+  }
+  const blob=new Blob([json],{type:'application/json'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download=fname; a.click();
+  markDone(); toast('エクスポートしました');
+}
+$('expBtn').onclick=doExport;
+$('impBtn').onclick=()=>$('impFile').click();
+$('impFile').onchange=e=>{
+  const file=e.target.files[0]; if(!file)return; const r=new FileReader();
+  r.onload=()=>{ try{ const d=JSON.parse(r.result);
+    if(!Array.isArray(d.items)) throw new Error('bad');
+    const mode = items.length ? (confirm('既存のデータに追加（マージ）しますか？\n「キャンセル」で既存データを置き換えます。') ? 'merge' : 'replace') : 'replace';
+    if(mode==='merge'){
+      const have=new Set(items.map(i=>i.id));
+      d.items.forEach(i=>{ if(i && i.id && !have.has(i.id)) items.push(i); });
+    }else{
+      items=d.items.filter(i=>i && i.id && i.name);
+    }
+    if(d.settings) settings=Object.assign(settings, d.settings);
+    saveI(); saveS(); localStorage.setItem(KEY.lastBackup, todayStr()); render(); toast('インポートしました');
+  }catch(err){ toast('読み込み失敗'); } e.target.value=''; };
+  r.readAsText(file);
+};
+$('wipeBtn').onclick=()=>{
+  if(!confirm('全データを削除します。よろしいですか？'))return;
+  items=[]; saveI(); render(); toast('削除しました');
+};
+
+/* ============================ Init ============================ */
+(async()=>{ render();
+  try{ if(navigator.storage && navigator.storage.persist){ await navigator.storage.persist(); } }catch(e){}
+  if('serviceWorker' in navigator){
+    let refreshing=false;
+    navigator.serviceWorker.addEventListener('controllerchange',()=>{ if(refreshing)return; refreshing=true; location.reload(); });
+    try{
+      const reg=await navigator.serviceWorker.register('sw.js');
+      reg.addEventListener('updatefound',()=>{ const nw=reg.installing;
+        nw && nw.addEventListener('statechange',()=>{ if(nw.state==='installed' && navigator.serviceWorker.controller){ nw.postMessage('skipWaiting'); } }); });
+      reg.update && reg.update();
+    }catch(e){}
+  }
+})();
+</script>
+</body>
+</html>
