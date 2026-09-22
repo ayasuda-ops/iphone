@@ -1,3 +1,14 @@
+# 📱 iphone
+
+iPhone のホーム画面に追加して使う、単一ファイル PWA アプリ集。
+
+| アプリ | パス | 内容 |
+|---|---|---|
+| 🏊 **Tri Coach** | `/`（このページ） | トライアスロン向けの減量・トレーニング管理 |
+| 🍽️ **友メシ帳** | [`/restaurants/`](restaurants/) | 友達から教えてもらったおすすめレストランの管理（自分専用の食べログ帳） |
+
+---
+
 # 🏊 Tri Coach
 
 来年5月のトライアスロン（オリンピックディスタンス）参加に向けた、**減量・トレーニング管理アプリ**。
@@ -65,10 +76,11 @@ Claude アプリと Tri Coach は別アプリのため自動連携はできま�
 ## ファイル構成
 
 ```
-index.html            アプリ本体（HTML/CSS/JS すべて内包）
+index.html            Tri Coach 本体（HTML/CSS/JS すべて内包）
 manifest.webmanifest  PWA マニフェスト
 sw.js                 Service Worker（オフラインキャッシュ）
 icon.svg              アプリアイコン
+restaurants/          友メシ帳（同じ構成: index.html / manifest / sw.js / icon.svg）
 ```
 
 ---

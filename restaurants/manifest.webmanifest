@@ -1,0 +1,15 @@
+{
+  "name": "友メシ帳 — 友達おすすめレストラン",
+  "short_name": "友メシ帳",
+  "description": "友達から教えてもらったおすすめレストランをメモして、行きたい/行ったを管理。食べログ・地図へワンタップ。",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#1a0f0a",
+  "theme_color": "#1a0f0a",
+  "lang": "ja",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
