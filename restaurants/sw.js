@@ -1,5 +1,5 @@
 /* 友メシ帳 service worker */
-const CACHE = 'tomomeshi-v5';
+const CACHE = 'tomomeshi-v6';
 const ASSETS = [
   './',
   './index.html',
