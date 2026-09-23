@@ -354,11 +354,21 @@
       <div id="tSummary"></div>
     </div>
     <div class="card">
-      <h2>スイム 100mペースの推移</h2>
-      <div class="seg" id="paceStroke" style="margin-bottom:12px">
+      <h2>スイム 自己ベスト</h2>
+      <div class="list" id="swimBest"></div>
+    </div>
+    <div class="card">
+      <h2>スイム ペースの推移（100mあたり）</h2>
+      <div class="seg" id="paceStroke" style="margin-bottom:8px">
         <button class="on" data-s="crawl">🏊 クロール</button>
         <button data-s="breast">🐸 平泳ぎ</button>
       </div>
+      <div class="seg" id="paceBucket">
+        <button data-b="sprint">スプリント</button>
+        <button data-b="mid">中距離</button>
+        <button class="on" data-b="long">長距離</button>
+      </div>
+      <div class="mini" style="margin:6px 0 12px">スプリント 〜100m ／ 中距離 〜999m ／ 長距離 1000m〜</div>
       <div id="paceChart"></div>
       <div class="mini" id="paceNote" style="margin-top:8px"></div>
     </div>
@@ -614,7 +624,7 @@ function balanceSeries(days){
 /* スイム 100mペース推移 (points=[{date, sec100}])。Y軸反転で速い=上 */
 function paceChart(el, data, opts={}){
   const W=el.clientWidth||480, H=opts.h||160, pad={l:44,r:10,t:14,b:22};
-  if(!data.length){ el.innerHTML='<div class="empty">距離＋タイムを記録すると上達グラフが表示されます</div>'; return; }
+  if(!data.length){ el.innerHTML=`<div class="empty">${opts.empty||'距離＋タイムを記録すると上達グラフが表示されます'}</div>`; return; }
   const ys=data.map(d=>d.sec100);
   let minY=Math.min(...ys), maxY=Math.max(...ys);
   const span=(maxY-minY)||10; minY-=span*0.2; maxY+=span*0.2;
@@ -641,14 +651,34 @@ function paceChart(el, data, opts={}){
     ${grid}<path d="${area}" fill="url(#pg)"/>${bline}
     <path d="${path}" fill="none" stroke="${col}" stroke-width="2.2" stroke-linejoin="round"/>${dots}${xl}</svg>`;
 }
-/* 指定泳法の日別ベストペース(sec/100m)を昇順で返す */
-function paceSeries(stroke){
+/* 距離帯: スプリント(〜100m) / ミドル(100m超〜1000m未満) / ロング(1000m〜) */
+const DIST_BUCKETS=[{k:'sprint',label:'スプリント'},{k:'mid',label:'中距離'},{k:'long',label:'長距離'}];
+const BUCKET_NAME={sprint:'スプリント',mid:'中距離',long:'長距離'};
+function bucketOf(meters){ return meters<=100?'sprint' : (meters<1000?'mid':'long'); }
+/* タイム計測できているスイム(泳法・距離・時間あり)だけを対象にする */
+function timedSwims(){ return workouts.filter(w=>w.type==='swim' && w.stroke && num(w.km)>0 && num(w.min)>0); }
+
+/* 指定泳法・距離帯の日別ベストペース(sec/100m)を昇順で返す */
+function paceSeries(stroke,bucket){
   const byDate={};
-  workouts.filter(w=>w.type==='swim' && w.stroke===stroke && num(w.km)>0 && num(w.min)>0).forEach(w=>{
+  timedSwims().filter(w=>w.stroke===stroke && bucketOf(num(w.km)*1000)===bucket).forEach(w=>{
     const sec100=(num(w.min)*60)/(num(w.km)*1000/100);
     if(byDate[w.date]==null || sec100<byDate[w.date]) byDate[w.date]=sec100;
   });
   return Object.keys(byDate).sort().map(d=>({date:d, sec100:byDate[d]}));
+}
+
+/* 泳法×実距離ごとの自己ベスト(総タイム最小)。泳法→距離の昇順 */
+function swimBests(){
+  const best={};
+  timedSwims().forEach(w=>{
+    const meters=Math.round(num(w.km)*1000), sec=num(w.min)*60, key=w.stroke+'@'+meters;
+    if(best[key]==null || sec<best[key].sec){
+      best[key]={stroke:w.stroke, meters, sec, sec100:sec/(meters/100), date:w.date};
+    }
+  });
+  const order={crawl:0,breast:1};
+  return Object.values(best).sort((a,b)=> (order[a.stroke]-order[b.stroke]) || (a.meters-b.meters));
 }
 
 /* ============================ Renders ============================ */
@@ -838,12 +868,15 @@ function renderTrain(){
       const distStr = num(w.km)? (isSwim? `${Math.round(w.km*1000)}m` : `${num(w.km).toFixed(1)}km`) : '';
       const timeStr = num(w.min)? (isSwim? fmtMMSS(num(w.min)*60) : `${Math.round(num(w.min))}分`) : '';
       let paceStr='';
-      if(isSwim && num(w.km)>0 && num(w.min)>0){ paceStr=` (${fmtMMSS((num(w.min)*60)/(num(w.km)*1000/100))}/100m)`; }
-      const name = TNAMES[w.type] + (isSwim && w.stroke ? ' '+STROKE_NAME[w.stroke] : '');
-      const head = ([distStr,timeStr].filter(Boolean).join(' · ') || '記録') + paceStr;
+      if(isSwim && num(w.km)>0 && num(w.min)>0){ paceStr=`${fmtMMSS((num(w.min)*60)/(num(w.km)*1000/100))}/100m`; }
+      // スイムは泳法名＋アイコンで種目が自明なので「スイム」の接頭辞は省く(長さ節約)
+      const name = (isSwim && w.stroke) ? STROKE_NAME[w.stroke] : TNAMES[w.type];
+      const head = [distStr,timeStr].filter(Boolean).join(' · ') || '記録';
+      const sub = [({easy:'イージー',mod:'ミドル',hard:'ハード'})[w.intensity]||'', paceStr, w.note?esc(w.note):'']
+        .filter(Boolean).join(' · ');
       html+=`<div class="item"><div class="ic ${w.type}">${TICON[w.type]}</div>
         <div class="m"><div class="t">${name} ${head}</div>
-        <div class="s">${({easy:'イージー',mod:'ミドル',hard:'ハード'})[w.intensity]||''}${w.note?' · '+esc(w.note):''}</div></div>
+        <div class="s">${sub}</div></div>
         <div class="kc">${num(w.kcal)}<small> kcal</small></div>
         <button class="x" data-del-t="${w.id}">×</button></div>`;
     }
@@ -1080,20 +1113,47 @@ document.getElementById('tAdd').onclick=()=>{
   document.getElementById('tNote').value=''; updateEst();
   render(); toast('トレーニングを記録しました');
 };
-/* ペース推移グラフの泳法トグル */
-let paceStrokeSel='crawl';
+/* ペース推移グラフの泳法・距離帯トグル */
+let paceStrokeSel='crawl', paceBucketSel='long', paceBucketAuto=true;
 document.querySelectorAll('#paceStroke button').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('#paceStroke button').forEach(x=>x.classList.remove('on')); b.classList.add('on');
   paceStrokeSel=b.dataset.s; renderPace();
 });
+document.querySelectorAll('#paceBucket button').forEach(b=>b.onclick=()=>{
+  paceBucketAuto=false; paceBucketSel=b.dataset.b; syncBucketUI(); renderPace();
+});
+function syncBucketUI(){
+  document.querySelectorAll('#paceBucket button').forEach(x=>x.classList.toggle('on', x.dataset.b===paceBucketSel));
+}
+/* 最新のタイム計測スイムの距離帯を初期選択にする(ユーザーが選ぶまで) */
+function autoPickBucket(){
+  if(!paceBucketAuto) return;
+  const ts=timedSwims();
+  if(!ts.length) return;
+  const latest=ts.reduce((a,b)=> b.date>=a.date? b : a);
+  paceBucketSel=bucketOf(num(latest.km)*1000); syncBucketUI();
+}
 function renderPace(){
-  const pts=paceSeries(paceStrokeSel);
-  paceChart(document.getElementById('paceChart'), pts, {color: paceStrokeSel==='crawl'?'var(--swim)':'var(--strength)', h:160});
+  autoPickBucket();
+  const pts=paceSeries(paceStrokeSel,paceBucketSel);
+  paceChart(document.getElementById('paceChart'), pts, {
+    color: paceStrokeSel==='crawl'?'var(--swim)':'var(--strength)', h:160,
+    empty:`${STROKE_NAME[paceStrokeSel]}・${BUCKET_NAME[paceBucketSel]}の記録がありません`});
   const note=document.getElementById('paceNote');
+  const label=`${STROKE_NAME[paceStrokeSel]}・${BUCKET_NAME[paceBucketSel]}`;
   if(pts.length>=2){ const first=pts[0].sec100, last=pts[pts.length-1].sec100, diff=last-first;
-    note.innerHTML=`${STROKE_NAME[paceStrokeSel]}: 初回 ${fmtMMSS(first)} → 最新 ${fmtMMSS(last)} /100m ・ <b style="color:${diff<=0?'var(--acc2)':'var(--warn)'}">${diff<=0?'−':'+'}${fmtMMSS(Math.abs(diff))}</b>（上ほど速い＝上達）`;
-  } else if(pts.length===1){ note.innerHTML=`${STROKE_NAME[paceStrokeSel]}: ${fmtMMSS(pts[0].sec100)}/100m ・ もう1回記録すると推移が出ます`;
+    note.innerHTML=`${label}: 初回 ${fmtMMSS(first)} → 最新 ${fmtMMSS(last)} /100m ・ <b style="color:${diff<=0?'var(--acc2)':'var(--warn)'}">${diff<=0?'−':'+'}${fmtMMSS(Math.abs(diff))}</b>（上ほど速い＝上達）`;
+  } else if(pts.length===1){ note.innerHTML=`${label}: ${fmtMMSS(pts[0].sec100)}/100m ・ もう1回記録すると推移が出ます`;
   } else note.textContent='';
+  renderSwimBests();
+}
+function renderSwimBests(){
+  const el=document.getElementById('swimBest'); if(!el) return;
+  const bests=swimBests();
+  if(!bests.length){ el.innerHTML='<div class="empty">距離とタイムを記録すると自己ベストが表示されます</div>'; return; }
+  el.innerHTML=bests.map(b=>`<div class="item"><div class="ic swim">${b.stroke==='crawl'?'🏊':'🐸'}</div>
+    <div class="m"><div class="t">${STROKE_NAME[b.stroke]} ${b.meters}m</div><div class="s">${fmtDate(b.date)}</div></div>
+    <div class="kc">${fmtMMSS(b.sec)}<small> ${fmtMMSS(b.sec100)}/100m</small></div></div>`).join('');
 }
 
 /* ============================ Settings actions ============================ */
