@@ -234,7 +234,7 @@
         <label>合言葉</label>
         <input id="sKey" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="共有する人と決めた合言葉">
         <details style="margin-top:8px"><summary class="mini" style="cursor:pointer">サーバー URL</summary>
-          <input id="sUrl" type="url" inputmode="url" autocomplete="off" autocapitalize="off" placeholder="https://tomomeshi-sync.xxxx.workers.dev" style="margin-top:6px">
+          <input id="sUrl" type="url" inputmode="url" autocomplete="off" autocapitalize="off" placeholder="https://iphone.yasuda-97c.workers.dev" style="margin-top:6px">
         </details>
         <button class="btn" id="sOn">接続して同期</button>
         <div class="note">接続すると、この iPhone のお店がサーバーに送られ、相手のお店と合わさります。</div>
@@ -877,7 +877,7 @@ $('wipeBtn').onclick=()=>{
 };
 
 /* ============================ Sync (Cloudflare) ============================ */
-const SYNC_URL_DEFAULT='';
+const SYNC_URL_DEFAULT='https://iphone.yasuda-97c.workers.dev';
 let syncCfg=Object.assign({url:SYNC_URL_DEFAULT, key:'', on:false}, load(SK.cfg,{}));
 if(!syncCfg.url) syncCfg.url=SYNC_URL_DEFAULT;
 let syncState='idle', syncErr='', syncing=false, syncAgain=false, syncTimer=null;

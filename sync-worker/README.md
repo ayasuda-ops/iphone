@@ -6,20 +6,15 @@
 - 同じお店が両方で編集された場合は、後から保存した方（`updatedAt` が新しい方）が残ります。削除も相手に伝わります。
 - Cloudflare の無料プランで動きます。
 
-## 初回セットアップ
+## セットアップ（Cloudflare の GitHub 連携）
 
-1. [Cloudflare](https://dash.cloudflare.com/sign-up) の無料アカウントを作る
-2. ダッシュボードの **Workers & Pages** を一度開き、`workers.dev` のサブドメインを決める
-3. **My Profile → API Tokens → Create Token** で「**Edit Cloudflare Workers**」テンプレートを使ってトークンを作る
-4. ダッシュボード右側などに表示される **Account ID** をコピー
-5. GitHub のリポジトリ **Settings → Secrets and variables → Actions → New repository secret** で次の 3 つを登録
-   | 名前 | 値 |
-   |---|---|
-   | `CLOUDFLARE_API_TOKEN` | 手順 3 のトークン |
-   | `CLOUDFLARE_ACCOUNT_ID` | 手順 4 の Account ID |
-   | `SYNC_KEY` | 合言葉 |
-6. **Actions → Deploy sync worker (Cloudflare) → Run workflow** で実行（以後は `sync-worker/` を変更して `main` に入れると自動デプロイ）
-7. デプロイされた URL `https://tomomeshi-sync.<サブドメイン>.workers.dev` を、アプリの 設定 → 共有 → サーバー URL に入れる
+1. [Cloudflare](https://dash.cloudflare.com/sign-up) の **Workers & Pages** で、GitHub の `ayasuda-ops/iphone` を接続して Worker `iphone` を作成
+2. Worker の **Settings → Build** で **Root directory** を `sync-worker` にする（Deploy command は `npx wrangler deploy` のまま）
+3. **Settings → Variables and Secrets → Add** で種類 **Secret**、名前 `SYNC_KEY`、値に合言葉を登録
+4. 以後は `main` に push すると Cloudflare が自動でデプロイします
+
+公開 URL: `https://iphone.yasuda-97c.workers.dev`（アプリの既定のサーバー URL）。
+`wrangler.toml` の `name` は Cloudflare 上の Worker 名（`iphone`）と一致させてください。
 
 ## API
 
