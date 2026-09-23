@@ -1,0 +1,20 @@
+# 友メシ帳 共有リスト同期サーバー
+# デプロイは Cloudflare の GitHub 連携 (Workers Builds, Root directory = sync-worker) が main への push で自動で行います。
+# 合言葉 SYNC_KEY は Cloudflare ダッシュボードの Variables and Secrets に登録し、このファイルには書きません。
+# name は Cloudflare 上の Worker 名と一致させる必要があります。
+name = "iphone"
+main = "src/index.js"
+compatibility_date = "2025-09-01"
+workers_dev = true
+
+[vars]
+# 同期を許可するアプリの配信元（カンマ区切り）
+ALLOWED_ORIGINS = "https://ayasuda-ops.github.io"
+
+[[durable_objects.bindings]]
+name = "LIST"
+class_name = "SyncList"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["SyncList"]
