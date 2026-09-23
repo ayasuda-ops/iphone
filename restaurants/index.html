@@ -210,6 +210,8 @@
         <option value="name">店名順</option>
         <option value="area">エリア順</option>
         <option value="rating">評価が高い順</option>
+        <option value="budgetLow">予算が安い順</option>
+        <option value="budgetHigh">予算が高い順</option>
         <option value="visit">訪問日が新しい順</option>
       </select>
     </div>
@@ -321,15 +323,14 @@
     <textarea id="fMemo" placeholder="例: ランチのコースがコスパ最高。要予約。"></textarea>
     <div class="grid2">
       <div>
-        <label>予算（1人）</label>
-        <select id="fBudget">
-          <option value="">未設定</option>
-          <option value="〜¥1,000">〜¥1,000</option>
-          <option value="¥1,000〜3,000">¥1,000〜3,000</option>
-          <option value="¥3,000〜5,000">¥3,000〜5,000</option>
-          <option value="¥5,000〜10,000">¥5,000〜10,000</option>
-          <option value="¥10,000〜">¥10,000〜</option>
-        </select>
+        <label>予算（夜・1人）</label>
+        <input id="fBudget" list="dlBudget" placeholder="例: ¥15,000〜¥19,999" autocomplete="off">
+        <datalist id="dlBudget">
+          <option value="〜¥999"><option value="¥1,000〜¥1,999"><option value="¥2,000〜¥2,999">
+          <option value="¥3,000〜¥3,999"><option value="¥4,000〜¥4,999"><option value="¥5,000〜¥5,999">
+          <option value="¥6,000〜¥7,999"><option value="¥8,000〜¥9,999"><option value="¥10,000〜¥14,999">
+          <option value="¥15,000〜¥19,999"><option value="¥20,000〜¥29,999"><option value="¥30,000〜">
+        </datalist>
       </div>
       <div>
         <label>電話番号</label>
@@ -493,6 +494,8 @@ function filtered(){
   switch(filter.sort){
     case 'name': r.sort((a,b)=>c(a.name,b.name)); break;
     case 'area': r.sort((a,b)=>c(a.area,b.area)||c(a.name,b.name)); break;
+    case 'budgetLow': r.sort((a,b)=>budgetNum(a,1)-budgetNum(b,1)||c(a.name,b.name)); break;
+    case 'budgetHigh': r.sort((a,b)=>budgetNum(b,-1)-budgetNum(a,-1)||c(a.name,b.name)); break;
     case 'rating': r.sort((a,b)=>((b.rating||0)-(a.rating||0))||((b.createdAt||0)-(a.createdAt||0))); break;
     case 'visit': r.sort((a,b)=>c(b.visitDate,a.visitDate)||((b.createdAt||0)-(a.createdAt||0))); break;
     default: r.sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
@@ -634,7 +637,7 @@ $('saveBtn').onclick=()=>{
   const visited=$('fVisited').checked;
   const data={
     name, genre:$('fGenre').value.trim(), area:$('fArea').value.trim(), friend:$('fFriend').value.trim(),
-    memo:$('fMemo').value.trim(), budget:$('fBudget').value, phone:$('fPhone').value.trim(), address:$('fAddr').value.trim(), url,
+    memo:$('fMemo').value.trim(), budget:normBudget($('fBudget').value), phone:$('fPhone').value.trim(), address:$('fAddr').value.trim(), url,
     visited, visitDate: visited? ($('fDate').value||todayStr()) : '', rating: visited? rating : 0,
     review: visited? $('fReview').value.trim() : '', updatedAt:Date.now()
   };
@@ -734,6 +737,30 @@ function areaFromAddr(a){
   return r[0].replace(/[一二三四五六七八九十]+丁目.*$/,'').replace(/丁目$/,'');
 }
 const RE_URL=/https?:\/\/[^\s<>"]+/i;
+/* 予算: 食べログ表記(¥15,000〜¥19,999 / ￥15,000～￥19,999 / 〜¥999 / ¥30,000〜)を統一 */
+function normBudget(t){
+  t=String(t||'').trim(); if(!t) return '';
+  t=t.replace(/[０-９]/g,c=>String.fromCharCode(c.charCodeAt(0)-0xFEE0)).replace(/[￥]/g,'¥')
+     .replace(/\s*[～~〜－\-–—]\s*/g,'〜').replace(/円/g,'');
+  // 数字だけの金額に ¥ と桁区切りを付ける
+  t=t.replace(/¥?\s*(\d[\d,]*)/g,(m,n)=>'¥'+Number(n.replace(/,/g,'')).toLocaleString('en-US'));
+  return t;
+}
+// 並び替え用: 下限の金額(〜¥999 は 0)。未設定は末尾へ
+function budgetNum(it,dir){
+  const b=it.budget||''; if(!b) return dir>0? Infinity : -Infinity;
+  if(/^〜/.test(b)) return 0;
+  const m=b.replace(/,/g,'').match(/\d+/); return m? +m[0] : (dir>0? Infinity : -Infinity);
+}
+// 「予算 ¥15,000〜¥19,999」「夜 ￥10,000～￥14,999」「ディナー: 15000〜19999円」など。昼/ランチの行は対象外
+const RE_BUDGET=/^(?:(?:夜の?|ディナー)?(?:予算)?(?:[（(]?(?:夜|ディナー)[）)])?)\s*[:：]?\s*((?:[〜～~]\s*)?[¥￥]?\s*[\d０-９][\d０-９,，]*\s*円?\s*(?:[〜～~\-－–]\s*(?:[¥￥]?\s*[\d０-９][\d０-９,，]*\s*円?)?)?)$/;
+function budgetOf(l){
+  if(/^(昼|ランチ)/.test(l)) return '';
+  const m=l.match(RE_BUDGET); if(!m) return '';
+  // 「予算」等の手がかりか、¥/円/〜 のどれかが無ければ電話番号などと区別できないので無視
+  if(!/予算|夜|ディナー|[¥￥円〜～~]/.test(l)) return '';
+  return normBudget(m[1].replace(/，/g,','));
+}
 const RE_ADDR=/^(〒\s*\d|東京都|北海道|京都府|大阪府|.{2,3}県)/;
 function isPhone(l){ const t=z2h(l).replace(/^(tel|電話|☎|📞)\s*:?\s*/i,''); return /^[\d\-()+\s]+$/.test(t) && (t.match(/\d/g)||[]).length>=9; }
 function parseBlocks(text){
@@ -744,12 +771,13 @@ function parseBlocks(text){
   blocks.push(cur);
   return blocks.map(ls=>{
     ls=ls.map(l=>l.trim()).filter(Boolean); if(!ls.length) return null;
-    const o={name:'',phone:'',address:'',url:'',memo:[]};
+    const o={name:'',phone:'',address:'',url:'',budget:'',memo:[]};
     ls.forEach(l=>{
       const u=l.match(RE_URL);
       if(u && !o.url && l.replace(u[0],'').trim().length<=4){ o.url=u[0]; return; }
       if(!o.phone && isPhone(l)){ o.phone=z2h(l).replace(/^(tel|電話|☎|📞)\s*:?\s*/i,'').trim(); return; }
       if(!o.address && RE_ADDR.test(l)){ o.address=l; return; }
+      if(o.name && !o.budget){ const b=budgetOf(l); if(b){ o.budget=b; return; } }
       if(!o.name){ o.name=l; return; }
       o.memo.push(l);
     });
@@ -765,7 +793,7 @@ function openPaste(){
   openM('mPaste'); setTimeout(()=>$('pText').focus(),300);
 }
 $('pasteBtn').onclick=openPaste;
-const CLAUDE_PROMPT='次のお店を友メシ帳の一括登録形式にして。各店の食べログURL・電話番号・住所を調べて、1行目に店名、次に電話・住所・食べログURL、その後に友達のコメントを書き、お店ごとに ---- の行で区切って。複数店舗が書かれていたら店舗ごとに分けて。結果はコピーしやすいように1つのコードブロックで出して。\n\n';
+const CLAUDE_PROMPT='次のお店を友メシ帳の一括登録形式にして。各店の食べログURL・電話番号・住所・夜の予算を調べて、1行目に店名、次に電話・住所・食べログURL・夜の予算（「予算 ¥15,000〜¥19,999」の形で食べログの表記のまま）、その後に友達のコメントを書き、お店ごとに ---- の行で区切って。複数店舗が書かれていたら店舗ごとに分けて。結果はコピーしやすいように1つのコードブロックで出して。\n\n';
 async function copyText(t){
   try{ await navigator.clipboard.writeText(t); return true; }catch(e){}
   try{ // 古い iOS 向けフォールバック
@@ -785,7 +813,7 @@ function renderPaste(){
       <input type="checkbox" data-pi="${i}" ${r.on?'checked':''}>
       <div class="b">
         <div class="n">${esc(r.name)}</div>
-        <div class="m">${[r.genre&&'🍴 '+esc(r.genre), r.area&&'📍 '+esc(r.area), r.phone&&'📞 '+esc(r.phone)].filter(Boolean).join('　')}</div>
+        <div class="m">${[r.genre&&'🍴 '+esc(r.genre), r.area&&'📍 '+esc(r.area), r.budget&&'💴 '+esc(r.budget), r.phone&&'📞 '+esc(r.phone)].filter(Boolean).join('　')}</div>
         ${r.address?`<div class="m">${esc(r.address)}</div>`:''}
         <div class="m">${r.url?'🔗 食べログ URL あり':'<span style="color:var(--mut)">食べログ URL なし</span>'}</div>
         ${r.memo?`<div class="m" style="color:var(--txt);white-space:pre-wrap">${esc(r.memo)}</div>`:''}
@@ -813,7 +841,7 @@ $('pSave').onclick=()=>{
   const sel=pasteRows.filter(r=>r.on); if(!sel.length) return;
   const now=Date.now();
   sel.forEach((r,k)=>items.push({id:uid(), createdAt:now-k, updatedAt:now,
-    name:r.name, genre:r.genre, area:r.area, friend, memo:r.memo, budget:'', phone:r.phone, address:r.address, url:r.url,
+    name:r.name, genre:r.genre, area:r.area, friend, memo:r.memo, budget:r.budget, phone:r.phone, address:r.address, url:r.url,
     visited:false, visitDate:'', rating:0, review:''}));
   saveI(); closeM('mPaste');
   filter.status='all'; document.querySelectorAll('#segStatus button').forEach(b=>b.classList.toggle('on',b.dataset.s==='all'));
