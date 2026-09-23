@@ -158,6 +158,16 @@
   .fr li .s.ok{color:var(--ok)}
 
   .note{font-size:11.5px; color:var(--mut); line-height:1.5; margin-top:8px}
+  .pv{display:flex; gap:10px; align-items:flex-start; background:var(--card2); border:1px solid var(--line);
+    border-radius:12px; padding:10px 12px; margin-top:8px; font-size:13px}
+  .pv input{width:auto; flex:none; margin-top:3px; transform:scale(1.25); accent-color:var(--acc)}
+  .pv .b{flex:1; min-width:0}
+  .pv .n{font-weight:800; font-size:14.5px}
+  .pv .m{color:var(--sub); font-size:12px; margin-top:3px; line-height:1.5; word-break:break-all}
+  .pv .w{color:var(--warn); font-size:11.5px; font-weight:700; margin-top:3px}
+  .pv.dup{opacity:.55}
+  .linkbtn{width:100%; margin-top:10px; padding:11px; border-radius:12px; border:1px dashed var(--acc);
+    background:transparent; color:var(--acc); font-weight:800; font-size:14px; cursor:pointer; font-family:inherit}
   .toast{position:fixed;left:50%;bottom:96px;transform:translateX(-50%);background:var(--card2);
     border:1px solid var(--line);color:var(--txt);padding:10px 16px;border-radius:12px;font-size:13px;font-weight:600;
     box-shadow:var(--sh);z-index:200;opacity:0;transition:.25s;pointer-events:none;max-width:88vw;text-align:center}
@@ -182,6 +192,7 @@
 
     <div class="search">
       <input type="search" id="q" placeholder="店名・エリア・メモ・友達で検索" autocomplete="off">
+      <button class="dice" id="pasteBtn" title="友達のメッセージを貼り付けて一括登録">📋</button>
       <button class="dice" id="diceBtn" title="行きたい店からランダムに1軒選ぶ">🎲</button>
     </div>
     <div class="seg" id="segStatus">
@@ -208,6 +219,7 @@
   <section class="view" id="v-friends">
     <div class="card" style="padding:12px 14px">
       <div style="font-size:13px;color:var(--sub);line-height:1.6">友達ごとに、教えてもらったお店をまとめて表示します。名前をタップすると詳細を開けます。</div>
+      <button class="linkbtn" data-paste>📋 友達のメッセージを貼り付けて一括登録</button>
     </div>
     <div id="friends"></div>
   </section>
@@ -301,6 +313,8 @@
         <input id="fPhone" type="tel" placeholder="任意" autocomplete="off">
       </div>
     </div>
+    <label>住所</label>
+    <input id="fAddr" placeholder="例: 東京都港区西麻布1-4-46" autocomplete="off">
     <label>食べログ URL</label>
     <input id="fUrl" type="url" placeholder="https://tabelog.com/..." autocomplete="off" inputmode="url">
     <div class="note" style="margin-top:4px">食べログアプリの「共有」→「コピー」で取得した URL を貼り付け。</div>
@@ -319,6 +333,32 @@
 
     <button class="btn" id="saveBtn">保存</button>
     <button class="btn danger" id="delBtn" style="display:none">このお店を削除</button>
+  </div>
+</div>
+
+<!-- ================= PASTE SHEET ================= -->
+<div class="modal" id="mPaste">
+  <div class="sheet">
+    <div class="grab"></div>
+    <button class="x" data-close="mPaste">✕</button>
+    <h3>📋 貼り付けで一括登録</h3>
+    <div class="note" style="margin-top:0">友達から届いたメッセージをそのまま貼り付けてください。お店ごとに <b>----</b> の行で区切ると複数軒をまとめて登録できます。<br>
+      各お店の 1 行目を店名として、電話番号・住所・食べログ URL を自動で読み取り、残りの行はメモになります。</div>
+    <div class="grid2">
+      <div>
+        <label>教えてくれた友達</label>
+        <input id="pFriend" list="dlFriend" placeholder="例: yuma" autocomplete="off">
+      </div>
+      <div>
+        <label>ジャンル（判定できない時）</label>
+        <input id="pGenre" list="dlGenre" placeholder="例: 焼肉" autocomplete="off">
+      </div>
+    </div>
+    <label>メッセージ</label>
+    <textarea id="pText" style="min-height:150px" placeholder="西麻布 焼肉 X&#10;050-xxxx-xxxx&#10;東京都港区西麻布1-4-46&#10;https://tabelog.com/...&#10;だいぶアッパー系な焼肉。&#10;----&#10;次のお店…"></textarea>
+    <button class="btn sec" id="pParse">読み取る</button>
+    <div id="pPreview"></div>
+    <button class="btn" id="pSave" style="display:none">登録</button>
   </div>
 </div>
 
@@ -360,12 +400,20 @@ function tabelogUrl(it){
   return 'https://tabelog.com/rstLst/?'+p.toString();
 }
 function mapUrl(it){
+  // 住所があれば住所で検索(正確)。無ければ店名＋エリア
+  if(it.address){
+    return settings.map==='google'
+      ? 'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(it.name+' '+it.address)
+      : 'https://maps.apple.com/?q='+encodeURIComponent(it.name)+'&address='+encodeURIComponent(it.address);
+  }
   const q=encodeURIComponent([it.name, it.area].filter(Boolean).join(' '));
   return settings.map==='google' ? 'https://www.google.com/maps/search/?api=1&query='+q : 'https://maps.apple.com/?q='+q;
 }
 function shareText(it){
   const l=[`【${it.name}】`];
   const m=[it.genre, it.area, it.budget].filter(Boolean).join(' / '); if(m) l.push(m);
+  if(it.address) l.push(it.address);
+  if(it.phone) l.push(it.phone);
   if(it.friend) l.push(`紹介: ${it.friend}`);
   if(it.memo) l.push(it.memo);
   if(it.visited && it.rating) l.push('評価: '+'★'.repeat(it.rating));
@@ -386,7 +434,7 @@ function filtered(){
     if(filter.status==='done' && !i.visited) return false;
     if(filter.genre && i.genre!==filter.genre) return false;
     if(filter.friend && i.friend!==filter.friend) return false;
-    if(q){ const h=[i.name,i.genre,i.area,i.friend,i.memo,i.review].join(' ').toLowerCase(); if(!h.includes(q)) return false; }
+    if(q){ const h=[i.name,i.genre,i.area,i.address,i.friend,i.memo,i.review].join(' ').toLowerCase(); if(!h.includes(q)) return false; }
     return true;
   });
   const c=(a,b)=>String(a||'').localeCompare(String(b||''),'ja');
@@ -515,7 +563,7 @@ function openEdit(id){
   $('editTitle').textContent= it? 'お店を編集' : 'お店を追加';
   $('fName').value=it?.name||''; $('fGenre').value=it?.genre||''; $('fArea').value=it?.area||'';
   $('fFriend').value=it?.friend||''; $('fMemo').value=it?.memo||''; $('fBudget').value=it?.budget||'';
-  $('fPhone').value=it?.phone||''; $('fUrl').value=it?.url||'';
+  $('fPhone').value=it?.phone||''; $('fAddr').value=it?.address||''; $('fUrl').value=it?.url||'';
   $('fVisited').checked=!!it?.visited; $('fDate').value=it?.visitDate||''; $('fReview').value=it?.review||'';
   setRating(it?.rating||0);
   $('visitBox').style.display=$('fVisited').checked?'':'none';
@@ -534,7 +582,7 @@ $('saveBtn').onclick=()=>{
   const visited=$('fVisited').checked;
   const data={
     name, genre:$('fGenre').value.trim(), area:$('fArea').value.trim(), friend:$('fFriend').value.trim(),
-    memo:$('fMemo').value.trim(), budget:$('fBudget').value, phone:$('fPhone').value.trim(), url,
+    memo:$('fMemo').value.trim(), budget:$('fBudget').value, phone:$('fPhone').value.trim(), address:$('fAddr').value.trim(), url,
     visited, visitDate: visited? ($('fDate').value||todayStr()) : '', rating: visited? rating : 0,
     review: visited? $('fReview').value.trim() : '', updatedAt:Date.now()
   };
@@ -567,6 +615,7 @@ function openDetail(id, headline){
       ${it.budget?`<span>💴 ${esc(it.budget)}</span>`:''}
     </div>
     ${it.friend?`<div class="by">👤 ${esc(it.friend)} のおすすめ</div>`:''}
+    ${it.address||it.phone?`<div class="box"><div class="k">住所・電話</div>${it.address?esc(it.address):''}${it.address&&it.phone?'\n':''}${it.phone?'📞 '+esc(it.phone):''}</div>`:''}
     ${it.memo?`<div class="box"><div class="k">おすすめポイント・メモ</div>${esc(it.memo)}</div>`:''}
     ${it.visited?`<div class="box"><div class="k">訪問記録 ${it.visitDate?'・ '+fmtDate(it.visitDate):''}</div>${it.rating?stars(it.rating):'<span style="color:var(--mut)">評価なし</span>'}${it.review?`<div style="margin-top:6px">${esc(it.review)}</div>`:''}</div>`:''}
     <div class="acts">
@@ -609,6 +658,104 @@ document.body.addEventListener('click',e=>{
   const el=e.target.closest('[data-open]'); if(!el) return;
   openDetail(el.dataset.open);
 });
+
+/* ============================ Paste bulk import ============================ */
+const z2h=t=>t.replace(/[０-９Ａ-Ｚａ-ｚ]/g,c=>String.fromCharCode(c.charCodeAt(0)-0xFEE0))
+  .replace(/[－‐−―ー–—]/g,m=>'-').replace(/：/g,':');
+const GENRE_KW=[
+  ['焼肉',/焼肉|焼き肉|ホルモン|カルビ|シャトーブリアン|うしごろ|叙々苑/],['寿司',/寿司|鮨|すし|スシ/],
+  ['焼鳥',/焼鳥|焼き鳥|やきとり/],['ラーメン',/ラーメン|らーめん|中華そば|つけ麺|麺屋|麺処/],
+  ['うどん・そば',/うどん|蕎麦|そば/],['イタリアン',/イタリア|トラットリア|trattoria|ピッツァ|pizza|pizzeria|osteria/i],
+  ['フレンチ',/フレンチ|ビストロ|bistro|brasserie/i],['中華',/中華|餃子|飯店|酒家|四川|広東/],
+  ['韓国料理',/韓国|サムギョプサル/],['カレー',/カレー|curry/i],['居酒屋',/居酒屋/],
+  ['カフェ',/カフェ|cafe|café|coffee|珈琲/i],['バー',/(^|\s)bar(\s|$)|バー/i],['和食',/割烹|懐石|料亭|和食|天ぷら|天麩羅/]
+];
+function guessGenre(text){ for(const [g,re] of GENRE_KW){ if(re.test(text)) return g; } return ''; }
+function areaFromAddr(a){
+  if(!a) return '';
+  let t=z2h(a).replace(/^〒?\s*\d{3}-?\d{4}\s*/,'').replace(/^(東京都|北海道|京都府|大阪府|.{2,3}県)/,'');
+  let m;
+  if(t.includes('区')) t=t.slice(t.indexOf('区')+1);
+  else if((m=t.match(/^.*?[市郡]/))) t=t.slice(m[0].length);
+  t=t.replace(/(字|大字)/,'');
+  const r=t.match(/^[^\d\s,，、]+/); if(!r) return '';
+  return r[0].replace(/[一二三四五六七八九十]+丁目.*$/,'').replace(/丁目$/,'');
+}
+const RE_URL=/https?:\/\/[^\s<>"]+/i;
+const RE_ADDR=/^(〒\s*\d|東京都|北海道|京都府|大阪府|.{2,3}県)/;
+function isPhone(l){ const t=z2h(l).replace(/^(tel|電話|☎|📞)\s*:?\s*/i,''); return /^[\d\-()+\s]+$/.test(t) && (t.match(/\d/g)||[]).length>=9; }
+function parseBlocks(text){
+  const blocks=[]; let cur=[];
+  text.replace(/\r/g,'').split('\n').forEach(l=>{
+    if(/^\s*[-ー―─=＝_＿*＊・]{3,}\s*$/.test(l)){ blocks.push(cur); cur=[]; } else cur.push(l);
+  });
+  blocks.push(cur);
+  return blocks.map(ls=>{
+    ls=ls.map(l=>l.trim()).filter(Boolean); if(!ls.length) return null;
+    const o={name:'',phone:'',address:'',url:'',memo:[]};
+    ls.forEach(l=>{
+      const u=l.match(RE_URL);
+      if(u && !o.url && l.replace(u[0],'').trim().length<=4){ o.url=u[0]; return; }
+      if(!o.phone && isPhone(l)){ o.phone=z2h(l).replace(/^(tel|電話|☎|📞)\s*:?\s*/i,'').trim(); return; }
+      if(!o.address && RE_ADDR.test(l)){ o.address=l; return; }
+      if(!o.name){ o.name=l; return; }
+      o.memo.push(l);
+    });
+    if(!o.name) return null;
+    o.memo=o.memo.join('\n');
+    return o;
+  }).filter(Boolean);
+}
+let pasteRows=[];
+function openPaste(){
+  $('pFriend').value=filter.friend||''; $('pGenre').value=''; $('pText').value='';
+  $('pPreview').innerHTML=''; $('pSave').style.display='none'; pasteRows=[];
+  openM('mPaste'); setTimeout(()=>$('pText').focus(),300);
+}
+$('pasteBtn').onclick=openPaste;
+document.querySelectorAll('[data-paste]').forEach(b=>b.onclick=openPaste);
+function renderPaste(){
+  if(!pasteRows.length){ $('pPreview').innerHTML=`<div class="empty" style="padding:14px 0">お店を読み取れませんでした。1 行目に店名を書いてください。</div>`; $('pSave').style.display='none'; return; }
+  $('pPreview').innerHTML=`<div class="note">${pasteRows.length} 軒を読み取りました。チェックしたお店を登録します。</div>`+pasteRows.map((r,i)=>`
+    <label class="pv ${r.dup?'dup':''}" style="margin:8px 0 0">
+      <input type="checkbox" data-pi="${i}" ${r.on?'checked':''}>
+      <div class="b">
+        <div class="n">${esc(r.name)}</div>
+        <div class="m">${[r.genre&&'🍴 '+esc(r.genre), r.area&&'📍 '+esc(r.area), r.phone&&'📞 '+esc(r.phone)].filter(Boolean).join('　')}</div>
+        ${r.address?`<div class="m">${esc(r.address)}</div>`:''}
+        <div class="m">${r.url?'🔗 食べログ URL あり':'<span style="color:var(--mut)">食べログ URL なし</span>'}</div>
+        ${r.memo?`<div class="m" style="color:var(--txt);white-space:pre-wrap">${esc(r.memo)}</div>`:''}
+        ${r.dup?`<div class="w">登録済みのお店と同じです</div>`:''}
+      </div>
+    </label>`).join('');
+  const n=pasteRows.filter(r=>r.on).length;
+  $('pSave').style.display=''; $('pSave').disabled=!n; $('pSave').textContent= n? `${n} 軒を登録` : '登録するお店を選んでください';
+}
+$('pParse').onclick=()=>{
+  const text=$('pText').value; if(!text.trim()){ toast('メッセージを貼り付けてください'); return; }
+  const fallback=$('pGenre').value.trim();
+  pasteRows=parseBlocks(text).map(o=>{
+    const url=normUrl(o.url);
+    const dup=items.some(i=>(url && i.url===url) || i.name===o.name);
+    const guess=guessGenre(o.name+' '+o.memo);
+    return Object.assign(o,{url, area:areaFromAddr(o.address), guess, genre:guess||fallback, dup, on:!dup});
+  });
+  renderPaste();
+};
+$('pGenre').oninput=()=>{ const f=$('pGenre').value.trim(); pasteRows.forEach(r=>r.genre=r.guess||f); if(pasteRows.length) renderPaste(); };
+$('pPreview').onchange=e=>{ const c=e.target.closest('[data-pi]'); if(!c) return; pasteRows[+c.dataset.pi].on=c.checked; renderPaste(); };
+$('pSave').onclick=()=>{
+  const friend=$('pFriend').value.trim();
+  const sel=pasteRows.filter(r=>r.on); if(!sel.length) return;
+  const now=Date.now();
+  sel.forEach((r,k)=>items.push({id:uid(), createdAt:now-k, updatedAt:now,
+    name:r.name, genre:r.genre, area:r.area, friend, memo:r.memo, budget:'', phone:r.phone, address:r.address, url:r.url,
+    visited:false, visitDate:'', rating:0, review:''}));
+  saveI(); closeM('mPaste');
+  filter.status='all'; document.querySelectorAll('#segStatus button').forEach(b=>b.classList.toggle('on',b.dataset.s==='all'));
+  filter.genre=''; filter.friend=friend||''; filter.q=''; $('q').value='';
+  render(); goTab('list'); toast(`${sel.length} 軒を登録しました`);
+};
 
 /* ============================ Random pick ============================ */
 $('diceBtn').onclick=()=>{
