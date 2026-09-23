@@ -166,6 +166,7 @@
   .pv .m{color:var(--sub); font-size:12px; margin-top:3px; line-height:1.5; word-break:break-all}
   .pv .w{color:var(--warn); font-size:11.5px; font-weight:700; margin-top:3px}
   .pv.dup{opacity:.55}
+  .box2{background:var(--card2); border:1px solid var(--line); border-radius:12px; padding:11px 13px; margin-bottom:10px}
   .linkbtn{width:100%; margin-top:10px; padding:11px; border-radius:12px; border:1px dashed var(--acc);
     background:transparent; color:var(--acc); font-weight:800; font-size:14px; cursor:pointer; font-family:inherit}
   .toast{position:fixed;left:50%;bottom:96px;transform:translateX(-50%);background:var(--card2);
@@ -342,6 +343,11 @@
     <div class="grab"></div>
     <button class="x" data-close="mPaste">✕</button>
     <h3>📋 貼り付けで一括登録</h3>
+    <div class="box2">
+      <div style="font-size:13px;font-weight:800">🤖 店名だけのメッセージなら Claude で整形</div>
+      <div class="note" style="margin-top:4px">依頼文をコピーして Claude アプリに貼り、その下に友達のメッセージを貼って送信。返ってきた結果をコピーして、下の「メッセージ」に貼り付けます。</div>
+      <button class="btn sec sm" id="pPrompt" style="margin-top:8px">Claude 用の依頼文をコピー</button>
+    </div>
     <div class="note" style="margin-top:0">友達から届いたメッセージをそのまま貼り付けてください。お店ごとに <b>----</b> の行で区切ると複数軒をまとめて登録できます。<br>
       各お店の 1 行目を店名として、電話番号・住所・食べログ URL を自動で読み取り、残りの行はメモになります。</div>
     <div class="grid2">
@@ -713,6 +719,18 @@ function openPaste(){
   openM('mPaste'); setTimeout(()=>$('pText').focus(),300);
 }
 $('pasteBtn').onclick=openPaste;
+const CLAUDE_PROMPT='次のお店を友メシ帳の一括登録形式にして。各店の食べログURL・電話番号・住所を調べて、1行目に店名、次に電話・住所・食べログURL、その後に友達のコメントを書き、お店ごとに ---- の行で区切って。複数店舗が書かれていたら店舗ごとに分けて。結果はコピーしやすいように1つのコードブロックで出して。\n\n';
+async function copyText(t){
+  try{ await navigator.clipboard.writeText(t); return true; }catch(e){}
+  try{ // 古い iOS 向けフォールバック
+    const ta=document.createElement('textarea'); ta.value=t; ta.setAttribute('readonly','');
+    ta.style.cssText='position:fixed;top:0;left:0;opacity:0;font-size:16px'; document.body.appendChild(ta);
+    ta.select(); ta.setSelectionRange(0,t.length); const ok=document.execCommand('copy'); ta.remove(); return ok;
+  }catch(e){ return false; }
+}
+$('pPrompt').onclick=async()=>{
+  toast(await copyText(CLAUDE_PROMPT) ? '依頼文をコピーしました。Claude アプリに貼ってください' : 'コピーできませんでした');
+};
 document.querySelectorAll('[data-paste]').forEach(b=>b.onclick=openPaste);
 function renderPaste(){
   if(!pasteRows.length){ $('pPreview').innerHTML=`<div class="empty" style="padding:14px 0">お店を読み取れませんでした。1 行目に店名を書いてください。</div>`; $('pSave').style.display='none'; return; }
