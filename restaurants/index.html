@@ -147,6 +147,7 @@
   .acts a,.acts button{display:flex; flex-direction:column; align-items:center; gap:4px; text-decoration:none; color:var(--txt);
     background:var(--card2); border:1px solid var(--line); border-radius:12px; padding:10px 4px; font-size:11.5px; font-weight:700; cursor:pointer; font-family:inherit}
   .acts .g{font-size:20px}
+  .acts .off{opacity:.45}
 
   .fr{background:var(--card); border:1px solid var(--line); border-radius:var(--r); padding:13px 14px; margin-bottom:10px; box-shadow:var(--sh)}
   .fr .h{display:flex; justify-content:space-between; align-items:center}
@@ -676,15 +677,14 @@ function openDetail(id, headline){
     <div class="acts">
       <a href="${esc(tabelogUrl(it))}" target="_blank" rel="noopener"><span class="g">🔎</span>${it.url?'食べログ':'食べログ検索'}</a>
       <a href="${esc(mapUrl(it))}" target="_blank" rel="noopener"><span class="g">🗺️</span>地図</a>
-      ${tel?`<a href="tel:${esc(tel)}"><span class="g">📞</span>電話</a>`:`<button data-act="share"><span class="g">📤</span>共有</button>`}
+      ${tel?`<a href="tel:${esc(tel)}"><span class="g">📞</span>電話</a>`:`<button data-act="notel" class="off"><span class="g">📞</span>電話なし</button>`}
     </div>
     <div class="acts" style="margin-top:8px">
-      ${tel?`<button data-act="share"><span class="g">📤</span>共有</button>`:''}
+      <button data-act="share"><span class="g">📤</span>共有</button>
       <button data-act="toggle"><span class="g">${it.visited?'↩️':'✅'}</span>${it.visited?'行きたいに戻す':'行った！'}</button>
       <button data-act="edit"><span class="g">✏️</span>編集</button>
-      ${tel?'':`<button data-act="del" style="color:var(--warn)"><span class="g">🗑️</span>削除</button>`}
     </div>
-    ${tel?`<button class="btn danger" data-act="del" style="margin-top:10px">このお店を削除</button>`:''}
+    <button class="btn danger" data-act="del" style="margin-top:10px">このお店を削除</button>
   `;
   openM('mDetail');
 }
@@ -693,6 +693,7 @@ $('detail').onclick=async e=>{
   const it=items.find(x=>x.id===detailId); if(!it) return;
   const act=b.dataset.act;
   if(act==='edit'){ closeM('mDetail'); openEdit(it.id); }
+  else if(act==='notel'){ toast('電話番号が未登録です。「編集」で追加できます'); }
   else if(act==='toggle'){
     if(it.visited){ it.visited=false; it.visitDate=''; it.rating=0; it.review=''; it.updatedAt=Date.now(); saveI(); render(); openDetail(it.id); toast('「行きたい」に戻しました'); }
     else { it.visited=true; it.visitDate=todayStr(); it.updatedAt=Date.now(); saveI(); render(); closeM('mDetail'); openEdit(it.id); toast('評価と感想を記録できます'); }
