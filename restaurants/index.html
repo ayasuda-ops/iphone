@@ -228,12 +228,34 @@
   <!-- ================= SETTINGS ================= -->
   <section class="view" id="v-set">
     <div class="card">
+      <h2>☁️ 共有（同期）</h2>
+      <div id="syncOffBox">
+        <div class="note" style="margin-top:0">同じ合言葉を入れた iPhone どうしで、お店のリストが自動で同期されます（例: 夫婦で共有）。</div>
+        <label>合言葉</label>
+        <input id="sKey" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="共有する人と決めた合言葉">
+        <details style="margin-top:8px"><summary class="mini" style="cursor:pointer">サーバー URL</summary>
+          <input id="sUrl" type="url" inputmode="url" autocomplete="off" autocapitalize="off" placeholder="https://tomomeshi-sync.xxxx.workers.dev" style="margin-top:6px">
+        </details>
+        <button class="btn" id="sOn">接続して同期</button>
+        <div class="note">接続すると、この iPhone のお店がサーバーに送られ、相手のお店と合わさります。</div>
+      </div>
+      <div id="syncOnBox" style="display:none">
+        <div class="switch" style="margin-top:0"><span id="syncStatus">同期中…</span><span id="syncWhen" class="mini"></span></div>
+        <div class="row" style="margin-top:10px">
+          <button class="btn sec sm" id="sNow">今すぐ同期</button>
+          <button class="btn danger sm" id="sOff">共有をやめる</button>
+        </div>
+        <div class="note">共有中は、追加・編集・削除が相手の iPhone にも反映されます。</div>
+      </div>
+    </div>
+
+    <div class="card">
       <h2>地図アプリ</h2>
       <div class="seg" id="segMap" style="margin-bottom:0">
         <button data-m="apple">Apple マップ</button>
         <button data-m="google">Google マップ</button>
       </div>
-      <div class="note">お店の詳細から「地図」を開くときに使うアプリ。店名とエリアで検索します。</div>
+      <div class="note">お店の詳細から「地図」を開くときに使うアプリ。住所があれば住所で、無ければ店名とエリアで検索します。</div>
     </div>
 
     <div class="card">
@@ -246,7 +268,7 @@
 
     <div class="card">
       <h2>バックアップ</h2>
-      <div class="note" style="margin-top:0">データはこの端末のブラウザ内にのみ保存されます。機種変更やバックアップには JSON のエクスポート／インポートを使ってください。<br>
+      <div class="note" style="margin-top:0">データはこの端末のブラウザ内に保存されます（共有中はサーバーにも保存）。機種変更やバックアップには JSON のエクスポート／インポートを使ってください。<br>
         <b>iCloud に残す手順：</b>「エクスポート」→ 共有シートで「<b>ファイルに保存</b>」→ iCloud Drive の好きなフォルダを選択。</div>
       <div style="height:10px"></div>
       <div class="row">
@@ -385,7 +407,31 @@ const KEY={items:'rm_items', settings:'rm_settings', lastBackup:'rm_lastBackup'}
 const load=(k,d)=>{ try{ const v=localStorage.getItem(k); return v?JSON.parse(v):d; }catch(e){ return d; } };
 let items=load(KEY.items,[]);
 let settings=Object.assign({map:'apple'}, load(KEY.settings,{}));
-const saveI=()=>localStorage.setItem(KEY.items, JSON.stringify(items));
+/* 変更の追跡: 前回保存時の状態(snap)と比べて、変わった/消えたお店を dirty(未送信)に積む */
+const SK={cfg:'rm_sync', cursor:'rm_syncCursor', dirty:'rm_dirty', last:'rm_lastSync'};
+let snap=new Map(items.map(i=>[i.id, JSON.stringify(i)]));
+let dirty=load(SK.dirty,{});   // id -> {u: updatedAt, d: 削除なら1}
+function saveI(fromRemote){
+  const now=Date.now(), seen=new Set();
+  items.forEach(i=>{
+    seen.add(i.id);
+    const prev=snap.get(i.id);
+    if(prev===JSON.stringify(i)) return;
+    if(!fromRemote){
+      const pu=prev? (JSON.parse(prev).updatedAt||0) : 0;
+      if(!i.updatedAt || i.updatedAt<=pu) i.updatedAt=Math.max(now, pu+1);
+      dirty[i.id]={u:i.updatedAt};
+    }
+    snap.set(i.id, JSON.stringify(i));
+  });
+  for(const id of [...snap.keys()]){
+    if(seen.has(id)) continue;
+    snap.delete(id);
+    if(!fromRemote) dirty[id]={u:now, d:1};
+  }
+  localStorage.setItem(KEY.items, JSON.stringify(items));
+  if(!fromRemote){ localStorage.setItem(SK.dirty, JSON.stringify(dirty)); scheduleSync(); }
+}
 const saveS=()=>localStorage.setItem(KEY.settings, JSON.stringify(settings));
 
 const GENRES=['和食','寿司','焼肉','焼鳥','ラーメン','うどん・そば','中華','イタリアン','フレンチ','洋食','カレー','韓国料理','エスニック','居酒屋','バー','カフェ','スイーツ','パン','その他'];
@@ -460,7 +506,7 @@ function render(){
   const fr=friendsOf(items);
   $('stWant').textContent=want; $('stDone').textContent=done;
   $('stFriends').innerHTML=Object.keys(fr).length+'<small> 人</small>';
-  $('hdrPill').innerHTML=`<b>${items.length}</b> 件`;
+  $('hdrPill').innerHTML=`<b>${items.length}</b> 件${syncBadge()}`;
 
   // chips
   const genres=uniq(items.map(i=>i.genre)).sort((a,b)=>a.localeCompare(b,'ja'));
@@ -826,12 +872,109 @@ $('impFile').onchange=e=>{
   r.readAsText(file);
 };
 $('wipeBtn').onclick=()=>{
-  if(!confirm('全データを削除します。よろしいですか？'))return;
+  if(!confirm(syncCfg.on ? '全データを削除します。\n共有中のため、相手の iPhone からも削除されます。よろしいですか？' : '全データを削除します。よろしいですか？'))return;
   items=[]; saveI(); render(); toast('削除しました');
 };
 
+/* ============================ Sync (Cloudflare) ============================ */
+const SYNC_URL_DEFAULT='';
+let syncCfg=Object.assign({url:SYNC_URL_DEFAULT, key:'', on:false}, load(SK.cfg,{}));
+if(!syncCfg.url) syncCfg.url=SYNC_URL_DEFAULT;
+let syncState='idle', syncErr='', syncing=false, syncAgain=false, syncTimer=null;
+const saveSyncCfg=()=>localStorage.setItem(SK.cfg, JSON.stringify(syncCfg));
+function syncBadge(){
+  if(!syncCfg.on) return '';
+  return {syncing:' ⏳', ok:' ☁️', error:' ⚠️', offline:' 📴'}[syncState]||' ☁️';
+}
+function renderSync(){
+  $('syncOffBox').style.display=syncCfg.on?'none':'';
+  $('syncOnBox').style.display=syncCfg.on?'':'none';
+  if(!syncCfg.on){ if(!$('sUrl').value) $('sUrl').value=syncCfg.url||''; return; }
+  $('syncStatus').textContent={syncing:'⏳ 同期中…', ok:'☁️ 同期済み', error:'⚠️ '+(syncErr||'同期できませんでした'), offline:'📴 オフライン（あとで同期）'}[syncState]||'☁️ 共有中';
+  const t=+localStorage.getItem(SK.last)||0;
+  $('syncWhen').textContent= t? new Date(t).toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}) : '';
+}
+function setSyncState(st){ syncState=st; $('hdrPill').innerHTML=`<b>${items.length}</b> 件${syncBadge()}`; renderSync(); }
+function scheduleSync(ms){ if(!syncCfg.on) return; clearTimeout(syncTimer); syncTimer=setTimeout(doSync, ms??1200); }
+
+async function doSync(){
+  if(!syncCfg.on || !syncCfg.url || !syncCfg.key) return;
+  if(syncing){ syncAgain=true; return; }
+  if(navigator.onLine===false){ setSyncState('offline'); return; }
+  syncing=true; setSyncState('syncing');
+  const sent={};
+  const changes=Object.entries(dirty).map(([id,d])=>{
+    sent[id]=d.u;
+    const it=!d.d && items.find(x=>x.id===id);
+    return it ? {id, updatedAt:it.updatedAt, data:it} : {id, updatedAt:d.u, deleted:true};
+  });
+  try{
+    const res=await fetch(syncCfg.url.replace(/\/+$/,'')+'/sync',{
+      method:'POST', cache:'no-store',
+      headers:{'Content-Type':'application/json', 'Authorization':'Bearer '+syncCfg.key},
+      body:JSON.stringify({since:+localStorage.getItem(SK.cursor)||0, changes})
+    });
+    if(res.status===401) throw new Error('合言葉が違います');
+    if(!res.ok) throw new Error('サーバーエラー（'+res.status+'）');
+    const r=await res.json();
+    // 送った変更は、送信後に再編集されていなければ送信済みにする
+    for(const id in sent){ if(dirty[id] && dirty[id].u===sent[id]) delete dirty[id]; }
+    localStorage.setItem(SK.dirty, JSON.stringify(dirty));
+    // サーバーからの変更を反映（まだ送っていない自分の変更は優先）
+    let changed=false;
+    for(const c of r.changes||[]){
+      if(dirty[c.id]) continue;
+      const idx=items.findIndex(x=>x.id===c.id);
+      if(c.deleted || !c.data){ if(idx>=0){ items.splice(idx,1); changed=true; } }
+      else if(idx<0){ items.push(c.data); changed=true; }
+      else if(JSON.stringify(items[idx])!==JSON.stringify(c.data)){ items[idx]=c.data; changed=true; }
+    }
+    localStorage.setItem(SK.cursor, String(r.cursor||0));
+    localStorage.setItem(SK.last, String(Date.now()));
+    syncErr='';
+    if(changed){
+      saveI(true); render();
+      if($('mDetail').classList.contains('on')){ if(items.some(x=>x.id===detailId)) openDetail(detailId); else closeM('mDetail'); }
+    }
+    setSyncState('ok');
+  }catch(e){
+    syncErr=(e && e.message && !/fetch|network|load/i.test(e.message)) ? e.message : '通信できませんでした';
+    setSyncState('error');
+  }finally{
+    syncing=false;
+    if(syncAgain){ syncAgain=false; scheduleSync(300); }
+  }
+}
+
+$('sOn').onclick=async()=>{
+  const key=$('sKey').value.trim(), url=($('sUrl').value.trim()||SYNC_URL_DEFAULT).replace(/\/+$/,'');
+  if(!key){ toast('合言葉を入力してください'); $('sKey').focus(); return; }
+  if(!/^https:\/\//.test(url) && !/^http:\/\/(localhost|127\.0\.0\.1)/.test(url)){ toast('サーバー URL を入力してください'); $('sUrl').closest('details').open=true; return; }
+  syncCfg={url, key, on:true}; saveSyncCfg();
+  // 初回は手元の全件を送り、サーバーの全件を受け取る
+  items.forEach(i=>{ if(!i.updatedAt) i.updatedAt=i.createdAt||Date.now(); dirty[i.id]={u:i.updatedAt}; });
+  localStorage.setItem(SK.dirty, JSON.stringify(dirty)); localStorage.setItem(SK.cursor,'0');
+  $('sOn').disabled=true;
+  await doSync();
+  $('sOn').disabled=false;
+  if(syncState!=='ok'){
+    const msg=syncErr||'接続できませんでした';
+    syncCfg.on=false; syncCfg.key=''; saveSyncCfg(); renderSync(); toast(msg); return;
+  }
+  $('sKey').value=''; toast(`共有を開始しました（${items.length} 件）`);
+};
+$('sNow').onclick=()=>doSync();
+$('sOff').onclick=()=>{
+  if(!confirm('共有をやめますか？\nこの iPhone のお店はそのまま残ります。'))return;
+  syncCfg.on=false; syncCfg.key=''; saveSyncCfg(); localStorage.removeItem(SK.cursor);
+  setSyncState('idle'); render(); toast('共有をやめました');
+};
+document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible') scheduleSync(0); });
+window.addEventListener('online',()=>scheduleSync(0));
+setInterval(()=>{ if(document.visibilityState==='visible') doSync(); }, 60000);
+
 /* ============================ Init ============================ */
-(async()=>{ render();
+(async()=>{ render(); renderSync(); scheduleSync(0);
   try{ if(navigator.storage && navigator.storage.persist){ await navigator.storage.persist(); } }catch(e){}
   if('serviceWorker' in navigator){
     let refreshing=false;

@@ -1,0 +1,12 @@
+{
+  "name": "tomomeshi-sync",
+  "private": true,
+  "description": "友メシ帳の共有リスト同期サーバー (Cloudflare Workers + Durable Objects)",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "wrangler": "^4"
+  }
+}
