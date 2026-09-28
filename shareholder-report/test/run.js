@@ -104,6 +104,12 @@ eq('dateLabel: 水曜', ctx.formatDateLabel_(new Date(2026, 8, 9)), '2026年09�
 eq('dateLabel: 日曜', ctx.formatDateLabel_(new Date(2026, 8, 13)), '2026年09月13日(日)');
 eq('dateLabel: 月をまたいだ土曜', ctx.formatDateLabel_(new Date(2026, 9, 3)), '2026年10月03日(土)');
 
+// digestSearchQuery_ : 送信済み素材メールを受信トレイから探す検索式
+eq('search: 件名で絞り込む', ctx.digestSearchQuery_('【日報素材】2026年09月28日(月)'),
+   'in:inbox subject:"【日報素材】2026年09月28日(月)"');
+eq('search: 件名中の二重引用符が式を壊さない', ctx.digestSearchQuery_('【日報素材】"A"'),
+   'in:inbox subject:"【日報素材】A"');
+
 // 日付ユーティリティ
 eq('date: startOfDay は 00:00', ctx.startOfDay_(new Date(2026, 8, 9, 23, 30)).getHours(), 0);
 eq('date: offsetDate は月をまたぐ', ctx.formatDate_(ctx.offsetDate_(new Date(2026, 8, 30), 1), 'yyyy-MM-dd'), '2026-10-01');

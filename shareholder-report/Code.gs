@@ -49,7 +49,10 @@ function sendDigestForDate_(date) {
   }
 
   var to = CONFIG.RECIPIENT || Session.getActiveUser().getEmail();
-  GmailApp.sendEmail(to, '【日報素材】' + digest.dateLabel, digest.body);
+  var subject = '【日報素材】' + digest.dateLabel;
+  GmailApp.sendEmail(to, subject, digest.body);
+
+  if (CONFIG.ARCHIVE_DIGEST) archiveDigestMail_(subject);
   Logger.log(
     digest.dateLabel + ' の素材を ' + to + ' に送信しました' +
     '（予定 ' + digest.eventCount + ' 件 / 議事録 ' + digest.docCount + ' 本' +
@@ -311,6 +314,36 @@ function fetchDocText_(fileId) {
 
 function isGoogleDoc_(mimeType) {
   return mimeType === 'application/vnd.google-apps.document';
+}
+
+/**
+ * 送信した素材メールにラベルを付け、受信トレイから外す。
+ * 自分宛のメールは届くまでに数秒かかることがあるので、見つかるまで少し待つ。
+ */
+function archiveDigestMail_(subject) {
+  var label = GmailApp.getUserLabelByName(CONFIG.DIGEST_LABEL) ||
+    GmailApp.createLabel(CONFIG.DIGEST_LABEL);
+
+  for (var attempt = 0; attempt < 5; attempt++) {
+    var threads = GmailApp.search(digestSearchQuery_(subject), 0, 5);
+    if (threads.length > 0) {
+      for (var i = 0; i < threads.length; i++) {
+        threads[i].addLabel(label);
+        threads[i].moveToArchive();
+      }
+      Logger.log('素材メールを「' + CONFIG.DIGEST_LABEL + '」に整理しました。');
+      return;
+    }
+    Utilities.sleep(2000);
+  }
+
+  // 見つからなくても素材メール自体は送信済みなので、失敗させず記録だけ残す
+  Logger.log('素材メールが受信トレイに見つからず、整理できませんでした: ' + subject);
+}
+
+/** 受信トレイにある当該素材メールを探す Gmail 検索式。 */
+function digestSearchQuery_(subject) {
+  return 'in:inbox subject:"' + String(subject).replace(/"/g, '') + '"';
 }
 
 // ── 送信メール ──────────────────────────────────────

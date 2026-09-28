@@ -47,6 +47,13 @@ var CONFIG = {
   //   例: '-label:private -to:family@example.com'
   MAIL_EXCLUDE_QUERY: '',
 
+  // ── 送信後の後片付け ────────────────────────────
+  // 素材メールは Claude に渡すための中間物で、人が読むものではない。
+  // 送信後すぐにラベルを付けて受信トレイから外す（アーカイブする）。
+  // Gmail の検索はアーカイブ済みも対象にするため、Claude 側の動作には影響しない。
+  ARCHIVE_DIGEST: true,
+  DIGEST_LABEL: '日報素材',
+
   // ── 分量の上限 ──────────────────────────────────
   MAX_DOC_CHARS: 12000,     // 議事録 1 本あたりの取り込み上限
   MAX_TOTAL_CHARS: 60000,   // 素材全体の上限（Gmail の表示崩れ防止）
