@@ -6,6 +6,7 @@ iPhone のホーム画面に追加して使う、単一ファイル PWA アプ�
 |---|---|---|
 | 🏊 **Tri Coach** | `/`（このページ） | トライアスロン向けの減量・トレーニング管理 |
 | 🍽️ **友メシ帳** | [`/restaurants/`](restaurants/) | 友達から教えてもらったおすすめレストランの管理（自分専用の食べログ帳） |
+| 🚁 **場外離着陸場 AR** | [`/heliport/`](heliport/) | 航空法79条の場外離着陸場（ヘリ）の着陸帯・進入表面・転移表面をカメラ映像に重ねて表示し、障害物の抵触を確認 |
 
 ---
 
@@ -81,6 +82,7 @@ manifest.webmanifest  PWA マニフェスト
 sw.js                 Service Worker（オフラインキャッシュ）
 icon.svg              アプリアイコン
 restaurants/          友メシ帳（同じ構成: index.html / manifest / sw.js / icon.svg）
+heliport/             場外離着陸場 AR（同じ構成）
 ```
 
 ---

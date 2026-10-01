@@ -1,0 +1,15 @@
+{
+  "name": "場外離着陸場 AR — 進入表面・転移表面ビューア",
+  "short_name": "場外AR",
+  "description": "航空法79条の場外離着陸場（ヘリコプター）について、着陸帯・進入表面・転移表面をカメラ映像に重ねて表示し、障害物の抵触を確認する現地調査アプリ。",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0a1018",
+  "theme_color": "#0a1018",
+  "lang": "ja",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
