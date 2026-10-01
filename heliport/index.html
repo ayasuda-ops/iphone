@@ -1,0 +1,1101 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<meta name="theme-color" content="#0a1018">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="場外AR">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon.svg">
+<title>場外離着陸場 AR — 進入表面・転移表面ビューア</title>
+<style>
+  :root{
+    --bg:#0a1018; --bg2:#0f1a26; --card:#14212f; --card2:#1a2a3b;
+    --line:#243649; --txt:#e8eefc; --sub:#93a4c6; --mut:#64769b;
+    --acc:#4f8cff; --acc2:#22d3a6; --warn:#ff6b6b; --gold:#f5b544;
+    --pad:#22d3a6; --tlof:#ffffff; --apld:#4f8cff; --apto:#a78bfa; --ols:#f5b544; --tr:#fb923c;
+    --r:16px; --sh:0 6px 24px rgba(0,0,0,.35);
+    --tabh:64px;
+  }
+  @media (prefers-color-scheme: light){
+    :root{ --bg:#eef2fb; --bg2:#e4ebf7; --card:#ffffff; --card2:#f4f7fe;
+      --line:#dbe3f2; --txt:#0e1a30; --sub:#4a5b7c; --mut:#7286a8; --sh:0 6px 20px rgba(30,50,90,.10);}
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
+  html,body{margin:0; height:100%}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Segoe UI",Roboto,sans-serif;
+    background:linear-gradient(180deg,var(--bg),var(--bg2)); color:var(--txt);
+    min-height:100vh; -webkit-font-smoothing:antialiased; overscroll-behavior:none;
+  }
+  button,input,select{font:inherit; color:inherit}
+  .wrap{max-width:560px; margin:0 auto; padding:calc(12px + env(safe-area-inset-top)) 14px calc(var(--tabh) + 20px + env(safe-area-inset-bottom))}
+  header.app{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:6px 2px 12px}
+  header.app .logo{display:flex; align-items:center; gap:9px; font-weight:800; font-size:18px}
+  header.app .logo .dot{width:26px;height:26px;border-radius:8px;
+    background:linear-gradient(135deg,var(--acc),var(--acc2)); display:grid; place-items:center; color:#fff; font-size:15px}
+  .pill{font-size:12px; color:var(--sub); background:var(--card); border:1px solid var(--line);
+    padding:6px 11px; border-radius:999px; white-space:nowrap}
+  .pill b{color:var(--gold)}
+
+  .card{background:var(--card); border:1px solid var(--line); border-radius:var(--r);
+    padding:15px; margin-bottom:13px; box-shadow:var(--sh)}
+  .card h2{margin:0 0 12px; font-size:13px; letter-spacing:.04em; color:var(--sub); font-weight:700; text-transform:uppercase}
+  .card p{margin:6px 0; font-size:13px; color:var(--sub); line-height:1.6}
+  .grid2{display:grid; grid-template-columns:1fr 1fr; gap:10px}
+  .grid3{display:grid; grid-template-columns:1fr 1fr 1fr; gap:9px}
+  .row{display:flex; gap:10px; align-items:center}
+  .row.wrapr{flex-wrap:wrap}
+  label.f{display:block; font-size:11px; color:var(--mut); font-weight:600; margin-bottom:4px}
+  .fld{margin-bottom:10px}
+  input[type=number],input[type=text],select{
+    width:100%; background:var(--card2); border:1px solid var(--line); border-radius:11px; padding:10px 12px; font-size:15px; outline:none}
+  input:focus{border-color:var(--acc)}
+  .unit{font-size:11px; color:var(--mut); margin-left:4px}
+  .btn{display:inline-flex; align-items:center; justify-content:center; gap:6px; border:1px solid var(--line); background:var(--card2);
+    border-radius:12px; padding:11px 14px; font-weight:700; font-size:14px; cursor:pointer; width:100%}
+  .btn.pri{background:linear-gradient(135deg,var(--acc),#3b6fe0); border-color:transparent; color:#fff}
+  .btn.ok{background:var(--acc2); border-color:transparent; color:#06281f}
+  .btn.warn{color:var(--warn)}
+  .btn.sm{padding:7px 10px; font-size:12px; width:auto; border-radius:9px}
+  .btn:active{transform:scale(.98)}
+  .note{font-size:12px; color:var(--sub); line-height:1.6}
+  .note b{color:var(--txt)}
+  .legend{display:flex; flex-wrap:wrap; gap:7px 12px; font-size:12px; color:var(--sub); margin-top:8px}
+  .legend i{display:inline-block; width:12px; height:12px; border-radius:3px; vertical-align:-2px; margin-right:5px}
+  .kv{display:grid; grid-template-columns:auto 1fr; gap:4px 12px; font-size:13px}
+  .kv .k{color:var(--mut)} .kv .v{font-weight:700; text-align:right}
+  .tag{display:inline-block; font-size:11px; font-weight:800; padding:3px 8px; border-radius:999px}
+  .tag.ok{background:rgba(34,211,166,.18); color:var(--acc2)}
+  .tag.ng{background:rgba(255,107,107,.18); color:var(--warn)}
+  .tag.na{background:rgba(147,164,198,.18); color:var(--sub)}
+  .stat{background:var(--card2); border:1px solid var(--line); border-radius:13px; padding:12px}
+  .stat .k{font-size:11px; color:var(--mut); font-weight:600}
+  .stat .v{font-size:20px; font-weight:800; margin-top:3px; line-height:1.1}
+  .stat .v small{font-size:12px; color:var(--sub); font-weight:600}
+  .list .item{display:flex; justify-content:space-between; gap:10px; padding:11px 0; border-top:1px solid var(--line)}
+  .list .item:first-child{border-top:none}
+  .list .item .t{font-weight:700; font-size:14px}
+  .list .item .s{font-size:12px; color:var(--sub); margin-top:3px; line-height:1.5}
+  .empty{color:var(--mut); font-size:13px; text-align:center; padding:18px 0}
+  svg.fig{width:100%; height:auto; display:block; background:var(--card2); border:1px solid var(--line); border-radius:12px}
+  .view{display:none} .view.on{display:block}
+
+  /* tabs */
+  nav.tabs{position:fixed; left:0; right:0; bottom:0; z-index:50; display:flex; justify-content:space-around;
+    background:rgba(16,24,36,.92); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px);
+    border-top:1px solid var(--line); padding:6px 4px calc(6px + env(safe-area-inset-bottom)); height:calc(var(--tabh) + env(safe-area-inset-bottom))}
+  @media (prefers-color-scheme: light){ nav.tabs{background:rgba(255,255,255,.9)} }
+  nav.tabs button{flex:1; background:none; border:none; color:var(--mut); font-size:10px; font-weight:700; display:flex; flex-direction:column; align-items:center; gap:3px; padding:4px 0}
+  nav.tabs button span.i{font-size:20px; line-height:1}
+  nav.tabs button.on{color:var(--acc)}
+
+  /* AR */
+  #ar{position:fixed; inset:0 0 calc(var(--tabh) + env(safe-area-inset-bottom)) 0; background:#000; display:none; z-index:10}
+  #ar.on{display:block}
+  #ar video{position:absolute; inset:0; width:100%; height:100%; object-fit:cover}
+  #ar canvas{position:absolute; inset:0; width:100%; height:100%; touch-action:none}
+  .hud{position:absolute; left:0; right:0; pointer-events:none}
+  .hud.top{top:calc(8px + env(safe-area-inset-top)); display:flex; flex-direction:column; gap:6px; align-items:center}
+  .chip{pointer-events:auto; background:rgba(8,14,22,.62); color:#fff; backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);
+    border:1px solid rgba(255,255,255,.12); border-radius:999px; padding:6px 12px; font-size:12px; font-weight:600; display:flex; gap:10px; align-items:center}
+  .chip b{color:var(--gold)}
+  .chip .ok{color:var(--acc2)} .chip .ng{color:var(--warn)}
+  .xh{position:absolute; left:50%; top:50%; width:28px; height:28px; margin:-14px 0 0 -14px; pointer-events:none}
+  .xh:before,.xh:after{content:""; position:absolute; background:rgba(255,255,255,.85); box-shadow:0 0 3px rgba(0,0,0,.6)}
+  .xh:before{left:13px; top:0; width:2px; height:28px} .xh:after{top:13px; left:0; height:2px; width:28px}
+  .fab{position:absolute; right:12px; bottom:14px; display:flex; flex-direction:column; gap:10px; pointer-events:auto}
+  .fab button{width:50px; height:50px; border-radius:50%; border:1px solid rgba(255,255,255,.18); background:rgba(8,14,22,.66); color:#fff; font-size:22px;
+    backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px); display:grid; place-items:center}
+  .fab button.on{background:var(--acc); border-color:transparent}
+  .sheet{position:absolute; left:10px; right:72px; bottom:14px; background:rgba(12,20,30,.88); border:1px solid rgba(255,255,255,.14); color:#fff;
+    border-radius:16px; padding:12px 14px; font-size:13px; pointer-events:auto; backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); display:none}
+  .sheet.on{display:block}
+  .sheet h3{margin:0 0 6px; font-size:14px}
+  .sheet .btn{margin-top:8px; background:rgba(255,255,255,.1); border-color:rgba(255,255,255,.18); color:#fff}
+  .sheet .btn.pri{background:var(--acc)}
+  .sheet input{background:rgba(255,255,255,.08); border-color:rgba(255,255,255,.2); color:#fff}
+  .sheet .kv .k{color:#9fb0cf}
+  .start{position:absolute; inset:0; display:grid; place-items:center; background:rgba(6,10,16,.78); pointer-events:auto; padding:24px}
+  .start .box{max-width:360px; background:var(--card); border:1px solid var(--line); border-radius:18px; padding:20px; color:var(--txt)}
+  .start h3{margin:0 0 8px; font-size:17px}
+  .start p{font-size:13px; color:var(--sub); line-height:1.6; margin:0 0 12px}
+  .start .btn{margin-top:8px}
+  .slider{position:absolute; left:12px; right:72px; bottom:14px; display:none; pointer-events:auto; background:rgba(12,20,30,.88); border:1px solid rgba(255,255,255,.14);
+    border-radius:14px; padding:10px 14px; color:#fff; font-size:12px}
+  .slider.on{display:block}
+  .slider input[type=range]{width:100%}
+  .toast{position:fixed; left:50%; transform:translateX(-50%); bottom:calc(var(--tabh) + 16px + env(safe-area-inset-bottom)); background:#0b1220; color:#fff;
+    border:1px solid var(--line); padding:10px 16px; border-radius:12px; font-size:13px; z-index:99; opacity:0; transition:opacity .25s; pointer-events:none}
+  .toast.on{opacity:1}
+  .banner{background:rgba(245,181,68,.12); border:1px solid rgba(245,181,68,.4); color:var(--gold); border-radius:12px; padding:9px 12px; font-size:12px; margin-bottom:12px; line-height:1.5}
+</style>
+</head>
+<body>
+
+<!-- ===== AR ===== -->
+<div id="ar">
+  <video id="cam" playsinline muted autoplay></video>
+  <canvas id="cv"></canvas>
+  <div class="xh"></div>
+  <div class="hud top">
+    <div class="chip" id="chipHead">方位 <b>---°</b><span id="chipDist">中心まで ---</span></div>
+    <div class="chip" id="chipLim" style="font-size:11px">現在地の制限高: ---</div>
+  </div>
+  <div class="fab">
+    <button id="bShot" title="スクリーンショット">📷</button>
+    <button id="bMeas" title="障害物を計測">📐</button>
+    <button id="bFov" title="視野角">🎚</button>
+  </div>
+  <div class="slider" id="fovBox">
+    縦の視野角 <b id="fovVal">62</b>° — 既知の物の大きさが実物と合うよう調整
+    <input type="range" id="fovRange" min="30" max="100" step="1" value="62">
+  </div>
+  <div class="sheet" id="sheet"></div>
+  <div class="start" id="start">
+    <div class="box">
+      <h3>AR 表示を開始</h3>
+      <p>カメラ・位置情報・方位センサーを使って、着陸帯と進入表面・転移表面をカメラ映像に重ねます。iPhone では「動作と方向」の許可が求められます。</p>
+      <p id="startNote" class="note"></p>
+      <button class="btn pri" id="bStart">▶ カメラとセンサーを開始</button>
+      <button class="btn" id="bStartManual">🖱 センサー無しで開始（ドラッグで視点操作）</button>
+    </div>
+  </div>
+</div>
+
+<div class="wrap" id="main">
+  <header class="app">
+    <div class="logo"><span class="dot">🚁</span>場外離着陸場 AR</div>
+    <div class="pill" id="pillGps">GPS <b>--</b></div>
+  </header>
+
+  <!-- ===== 平面図 ===== -->
+  <section class="view" id="v-plan">
+    <div class="card">
+      <div class="row" style="justify-content:space-between; margin-bottom:10px">
+        <h2 style="margin:0">平面図</h2>
+        <button class="btn sm" id="bPlanRot">🧭 北を上</button>
+      </div>
+      <div id="planSvg"></div>
+      <div class="legend" id="legend"></div>
+    </div>
+    <div class="card">
+      <h2>配置</h2>
+      <div class="kv" id="planKv"></div>
+    </div>
+  </section>
+
+  <!-- ===== 断面図 ===== -->
+  <section class="view" id="v-sec">
+    <div class="card"><h2>縦断面（進入方向）</h2><div id="secLong"></div>
+      <p class="note">左が着陸側（進入表面 1/n 着陸）、右が離陸側。縦方向は見やすさのため拡大表示（倍率は図中に表示）。棒は障害物で、帯の外のものは薄く表示。</p></div>
+    <div class="card"><h2>横断面（着陸帯中央）</h2><div id="secCross"></div>
+      <p class="note">着陸帯の側方: 物件制限表面 → 転移表面。帯の範囲内（|x| ≤ 着陸帯長/2）の障害物を濃く表示。</p></div>
+  </section>
+
+  <!-- ===== 障害物 ===== -->
+  <section class="view" id="v-obs">
+    <div class="card">
+      <h2>障害物の手入力</h2>
+      <div class="grid3">
+        <div class="fld"><label class="f">中心からの方位 °</label><input type="number" id="oBrg" step="1" placeholder="真北 0"></div>
+        <div class="fld"><label class="f">中心からの距離 m</label><input type="number" id="oDist" step="1"></div>
+        <div class="fld"><label class="f">高さ m（地盤から）</label><input type="number" id="oH" step="0.1"></div>
+      </div>
+      <div class="fld"><label class="f">名称（任意）</label><input type="text" id="oName" placeholder="例: 電柱、送電線、樹木"></div>
+      <button class="btn pri" id="bObsAdd">＋ 追加して判定</button>
+      <p class="note" style="margin-top:8px">AR 画面の 📐 で、カメラ照準から距離・高さを測って追加することもできます。</p>
+    </div>
+    <div class="card">
+      <h2>障害物一覧 <span id="obsCount" style="color:var(--mut)"></span></h2>
+      <div class="list" id="obsList"></div>
+    </div>
+  </section>
+
+  <!-- ===== 設定 ===== -->
+  <section class="view" id="v-set">
+    <div class="banner">初期値は国交省通達「法第79条ただし書の規定による許可事務」および AOPA Japan 掲載の基準図（回転翼航空機・一般・陸上）に基づく概略値です。実際の申請では最新の通達・航空局との事前調整で確認してください。本アプリは現地確認の補助用で、法的な判定を保証しません。</div>
+
+    <div class="card">
+      <h2>着陸帯の位置</h2>
+      <div class="grid2">
+        <div class="fld"><label class="f">緯度</label><input type="number" id="cLat" step="0.000001" placeholder="35.68"></div>
+        <div class="fld"><label class="f">経度</label><input type="number" id="cLon" step="0.000001" placeholder="139.76"></div>
+      </div>
+      <button class="btn pri" id="bCenterHere">📍 現在地を着陸帯の中心にする</button>
+      <p class="note" id="centerNote" style="margin-top:8px"></p>
+      <div class="fld" style="margin-top:12px"><label class="f">進入方位（着陸時の機首方位・真北から時計回り） °</label>
+        <div class="row"><input type="number" id="cHead" step="1" min="0" max="359"><button class="btn sm" id="bHeadDev" style="white-space:nowrap">端末の向き</button></div></div>
+      <p class="note">着陸側（進入表面 1/4）はこの方位の<b>反対側</b>に、離陸側（1/8）はこの方位の先に展開します。</p>
+    </div>
+
+    <div class="card">
+      <h2>使用機材</h2>
+      <div class="fld"><label class="f">D′値（回転翼を含む機体の最大投影寸法） m</label><input type="number" id="dPrime" step="0.1" min="3"></div>
+      <div class="grid2">
+        <div class="fld"><label class="f">着陸帯 長さ m（空欄＝1.5×D′）</label><input type="number" id="padL" step="0.5" placeholder="自動"></div>
+        <div class="fld"><label class="f">着陸帯 幅 m（空欄＝1.5×D′）</label><input type="number" id="padW" step="0.5" placeholder="自動"></div>
+      </div>
+      <div class="fld"><label class="f">接地帯 比率（× D′）</label><input type="number" id="tlofRatio" step="0.01" min="0" max="1.5"></div>
+      <p class="note">着陸帯：飛行規程記載値と 1.5×D′ の大きい方。接地帯：同 0.83×D′。参考 D′：R44 ≈ 11.7 m、AS350 ≈ 12.9 m、BK117 ≈ 13.0 m、AW139 ≈ 16.7 m。</p>
+    </div>
+
+    <div class="card">
+      <h2>進入表面</h2>
+      <div class="grid2">
+        <div class="fld"><label class="f">着陸側 勾配 1/n</label><input type="number" id="ldSlope" step="0.5" min="1"></div>
+        <div class="fld"><label class="f">離陸側 勾配 1/n</label><input type="number" id="toSlope" step="0.5" min="1"></div>
+        <div class="fld"><label class="f">長さ m</label><input type="number" id="apLen" step="10" min="10"></div>
+        <div class="fld"><label class="f">外側の幅 m</label><input type="number" id="apOuterW" step="10" min="0"></div>
+      </div>
+      <p class="note">内側の幅は着陸帯の幅に接続。</p>
+    </div>
+
+    <div class="card">
+      <h2>側方の表面</h2>
+      <div class="grid2">
+        <div class="fld"><label class="f">物件制限表面 幅 m（0＝無し）</label><input type="number" id="olsW" step="1" min="0"></div>
+        <div class="fld"><label class="f">物件制限表面 勾配 1/n</label><input type="number" id="olsSlope" step="0.5" min="0.5"></div>
+        <div class="fld"><label class="f">転移表面 勾配 1/n</label><input type="number" id="trSlope" step="0.5" min="0.5"></div>
+        <div class="fld"><label class="f">転移表面 上端高さ m</label><input type="number" id="trTop" step="1" min="1"></div>
+      </div>
+      <p class="note">着陸帯と進入表面の側辺から外側へ、物件制限表面（1/2・10 m）→ 転移表面（1/1）が上端高さ 45 m まで立ち上がる構成。</p>
+    </div>
+
+    <div class="card">
+      <h2>AR・計測</h2>
+      <div class="grid2">
+        <div class="fld"><label class="f">縦の視野角 °</label><input type="number" id="vfov" step="1" min="30" max="100"></div>
+        <div class="fld"><label class="f">カメラ（目）の高さ m</label><input type="number" id="eyeH" step="0.1" min="0.5"></div>
+        <div class="fld"><label class="f">方位補正 °（＋で時計回り）</label><input type="number" id="headFix" step="1"></div>
+        <div class="fld"><label class="f">自分の位置</label>
+          <select id="posMode"><option value="gps">GPS（実測）</option><option value="manual">手動指定</option></select></div>
+      </div>
+      <div class="grid2" id="manualPos">
+        <div class="fld"><label class="f">中心からの方位 °</label><input type="number" id="manBrg" step="1"></div>
+        <div class="fld"><label class="f">中心からの距離 m</label><input type="number" id="manDist" step="1"></div>
+      </div>
+      <p class="note">障害物計測は地面が平らとして、根元への俯角とカメラ高さから距離を、頂部への仰角から高さを求めます。</p>
+    </div>
+
+    <div class="card">
+      <h2>データ</h2>
+      <div class="grid2">
+        <button class="btn" id="bExport">⬆ JSON エクスポート</button>
+        <button class="btn" id="bImport">⬇ JSON インポート</button>
+        <button class="btn" id="bCopyPlan">📋 計画概要をコピー</button>
+        <button class="btn warn" id="bReset">↺ 初期値に戻す</button>
+      </div>
+      <input type="file" id="fileImp" accept="application/json" hidden>
+    </div>
+  </section>
+</div>
+
+<nav class="tabs">
+  <button data-v="ar" class="on"><span class="i">📷</span>AR</button>
+  <button data-v="plan"><span class="i">🗺</span>平面図</button>
+  <button data-v="sec"><span class="i">📐</span>断面図</button>
+  <button data-v="obs"><span class="i">⚠️</span>障害物</button>
+  <button data-v="set"><span class="i">⚙️</span>設定</button>
+</nav>
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+// ============================================================================
+// 設定・保存
+// ============================================================================
+const KEY = 'helisite.v1';
+const DEF = {
+  center: { lat: null, lon: null }, heading: 0,
+  dPrime: 13, padL: null, padW: null, tlofRatio: 0.83,
+  ldSlope: 4, toSlope: 8, apLen: 500, apOuterW: 200,
+  olsW: 10, olsSlope: 2, trSlope: 1, trTop: 45,
+  vfov: 62, eyeH: 1.5, headFix: 0, posMode: 'gps', manBrg: 180, manDist: 40,
+  planNorthUp: true,
+};
+let S = load();
+function load() {
+  try {
+    const j = JSON.parse(localStorage.getItem(KEY) || '{}');
+    return { cfg: Object.assign({}, DEF, j.cfg || {}), obstacles: j.obstacles || [] };
+  } catch (e) { return { cfg: Object.assign({}, DEF), obstacles: [] }; }
+}
+function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} }
+
+// ============================================================================
+// GEOMETRY BEGIN  （純粋関数: 設定 → 3D ポリゴン群と制限高関数）
+// ローカル座標: x = 進入方位の前方(離陸側が+), y = 右, z = 上 [m]
+// ============================================================================
+const DEG = Math.PI / 180;
+const KIND = {
+  pad:  { name: '着陸帯',            color: '#22d3a6' },
+  tlof: { name: '接地帯',            color: '#ffffff' },
+  apld: { name: '進入表面（着陸側）', color: '#4f8cff' },
+  apto: { name: '進入表面（離陸側）', color: '#a78bfa' },
+  ols:  { name: '物件制限表面',      color: '#f5b544' },
+  tr:   { name: '転移表面',          color: '#fb923c' },
+};
+
+function dims(cfg) {
+  const D = +cfg.dPrime || 13;
+  return {
+    L: +cfg.padL > 0 ? +cfg.padL : 1.5 * D,
+    W: +cfg.padW > 0 ? +cfg.padW : 1.5 * D,
+    T: Math.max(0, +cfg.tlofRatio) * D,
+    La: +cfg.apLen, Wo: +cfg.apOuterW,
+    zLd: cfg.apLen / Math.max(0.1, +cfg.ldSlope),
+    zTo: cfg.apLen / Math.max(0.1, +cfg.toSlope),
+    olsW: Math.max(0, +cfg.olsW), olsN: Math.max(0.1, +cfg.olsSlope),
+    trN: Math.max(0.1, +cfg.trSlope), top: Math.max(0.1, +cfg.trTop),
+  };
+}
+
+// 外周（反時計回り, 上から見て x右 y上）を step 以下の間隔でサンプリング
+function sampleLoop(pts, step) {
+  const out = [];
+  for (let i = 0; i < pts.length; i++) {
+    const a = pts[i], b = pts[(i + 1) % pts.length];
+    const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    const n = Math.max(1, Math.ceil(len / step));
+    for (let k = 0; k < n; k++) {
+      const t = k / n;
+      out.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t]);
+    }
+  }
+  return out;
+}
+
+// 外周の各頂点に対する外向きオフセット方向（マイター）と倍率
+function miterDirs(loop) {
+  const n = loop.length, dirs = [];
+  for (let i = 0; i < n; i++) {
+    const p = loop[(i - 1 + n) % n], c = loop[i], q = loop[(i + 1) % n];
+    const e1 = norm2([c[0] - p[0], c[1] - p[1]]), e2 = norm2([q[0] - c[0], q[1] - c[1]]);
+    const n1 = [e1[1], -e1[0]], n2 = [e2[1], -e2[0]];        // CCW → 外向き法線
+    let m = norm2([n1[0] + n2[0], n1[1] + n2[1]]);
+    if (!isFinite(m[0]) || (m[0] === 0 && m[1] === 0)) m = n2;
+    let s = 1 / Math.max(0.33, m[0] * n2[0] + m[1] * n2[1]); // 鋭角での暴れを抑制
+    dirs.push([m[0] * s, m[1] * s]);
+  }
+  return dirs;
+}
+function norm2(v) { const l = Math.hypot(v[0], v[1]) || 1; return [v[0] / l, v[1] / l]; }
+
+function buildModel(cfg) {
+  const d = dims(cfg);
+  const { L, W, T, La, Wo, zLd, zTo } = d;
+  const polys = [], lines = [], labels = [];
+  const P = (kind, pts, extra) => polys.push(Object.assign({ kind, pts, color: KIND[kind].color }, extra || {}));
+
+  P('pad', [[-L / 2, -W / 2, 0], [L / 2, -W / 2, 0], [L / 2, W / 2, 0], [-L / 2, W / 2, 0]]);
+  if (T > 0 && T < Math.min(L, W)) P('tlof', [[-T / 2, -T / 2, 0], [T / 2, -T / 2, 0], [T / 2, T / 2, 0], [-T / 2, T / 2, 0]], { noLimit: true, outline: true });
+  P('apto', [[L / 2, -W / 2, 0], [L / 2 + La, -Wo / 2, zTo], [L / 2 + La, Wo / 2, zTo], [L / 2, W / 2, 0]]);
+  P('apld', [[-L / 2, W / 2, 0], [-(L / 2 + La), Wo / 2, zLd], [-(L / 2 + La), -Wo / 2, zLd], [-L / 2, -W / 2, 0]]);
+
+  // 進入表面上の距離目盛り（100 m ごと）
+  for (const side of [1, -1]) {
+    const z1 = side > 0 ? zTo : zLd, n = side > 0 ? cfg.toSlope : cfg.ldSlope;
+    for (let s = 100; s < La; s += 100) {
+      const t = s / La, hw = (W / 2) + (Wo / 2 - W / 2) * t, x = side * (L / 2 + s), z = z1 * t;
+      lines.push({ pts: [[x, -hw, z], [x, hw, z]], color: side > 0 ? KIND.apto.color : KIND.apld.color });
+      labels.push({ p: [x, hw, z], text: `${s}m / h${(s / n).toFixed(1)}m`, color: '#fff' });
+    }
+    labels.push({ p: [side * (L / 2 + La * 0.45), 0, z1 * 0.45], text: (side > 0 ? '進入表面(離陸側) 1/' + cfg.toSlope : '進入表面(着陸側) 1/' + cfg.ldSlope), color: '#fff', big: true });
+  }
+  labels.push({ p: [0, 0, 0], text: `着陸帯 ${fmt(L)}×${fmt(W)}m`, color: '#fff', big: true });
+
+  // 側方表面: 外周（着陸帯 + 両進入表面）をオフセット
+  const outline = [
+    [-L / 2, -W / 2, 0], [L / 2, -W / 2, 0], [L / 2 + La, -Wo / 2, zTo], [L / 2 + La, Wo / 2, zTo],
+    [L / 2, W / 2, 0], [-L / 2, W / 2, 0], [-(L / 2 + La), Wo / 2, zLd], [-(L / 2 + La), -Wo / 2, zLd],
+  ];
+  const loop = sampleLoop(outline, 25);
+  const dirs = miterDirs(loop);
+  const N = loop.length;
+  const off = (i, w) => [loop[i][0] + dirs[i][0] * w, loop[i][1] + dirs[i][1] * w];
+  // 各頂点の帯幅
+  const w1 = loop.map(p => Math.min(d.olsW, Math.max(0, d.top - p[2]) * d.olsN));
+  const z1 = loop.map((p, i) => p[2] + w1[i] / d.olsN);
+  const w2 = loop.map((p, i) => (d.olsW === 0 || w1[i] >= d.olsW - 1e-9) ? Math.max(0, d.top - z1[i]) * d.trN : 0);
+  for (let i = 0; i < N; i++) {
+    const j = (i + 1) % N;
+    if (d.olsW > 0 && (w1[i] > 0.01 || w1[j] > 0.01)) {
+      const a = off(i, 0), b = off(j, 0), c = off(j, w1[j]), e = off(i, w1[i]);
+      P('ols', [[a[0], a[1], loop[i][2]], [b[0], b[1], loop[j][2]], [c[0], c[1], z1[j]], [e[0], e[1], z1[i]]], { band: true });
+    }
+    if (w2[i] > 0.01 || w2[j] > 0.01) {
+      const a = off(i, w1[i]), b = off(j, w1[j]), c = off(j, w1[j] + w2[j]), e = off(i, w1[i] + w2[i]);
+      P('tr', [[a[0], a[1], z1[i]], [b[0], b[1], z1[j]], [c[0], c[1], z1[j] + w2[j] / d.trN], [e[0], e[1], z1[i] + w2[i] / d.trN]], { band: true });
+    }
+  }
+  // 帯の境界線（物件制限表面の外縁＝転移表面の内縁、転移表面の上端）とリブ線（100 m ごと）
+  const edge1 = [], edge2 = [];
+  for (let i = 0; i < N; i++) {
+    const a = off(i, w1[i]), b = off(i, w1[i] + w2[i]);
+    edge1.push([a[0], a[1], z1[i]]); edge2.push([b[0], b[1], z1[i] + w2[i] / d.trN]);
+    if (i % 4 === 0 && (w1[i] + w2[i]) > 0.01) lines.push({ pts: [loop[i], edge2[i]], color: KIND.tr.color, thin: true });
+  }
+  if (d.olsW > 0) lines.push({ pts: edge1, color: KIND.ols.color, loop: true });
+  lines.push({ pts: edge2, color: KIND.tr.color, loop: true, bold: true });
+  labels.push({ p: [0, W / 2 + d.olsW + 10, Math.min(d.top, d.olsW / d.olsN + 10 / d.trN)], text: `転移表面 1/${cfg.trSlope}`, color: '#fff', big: true });
+  labels.push({ p: [0, -(W / 2 + d.olsW + 10), Math.min(d.top, d.olsW / d.olsN + 10 / d.trN)], text: `転移表面 1/${cfg.trSlope}`, color: '#fff', big: true });
+
+  for (const p of polys) p.plane = planeOf(p.pts);
+  return { polys, lines, labels, dims: d };
+}
+
+// Newell 法で平面 ax+by+cz=d
+function planeOf(pts) {
+  let a = 0, b = 0, c = 0;
+  for (let i = 0; i < pts.length; i++) {
+    const p = pts[i], q = pts[(i + 1) % pts.length];
+    a += (p[1] - q[1]) * (p[2] + q[2]); b += (p[2] - q[2]) * (p[0] + q[0]); c += (p[0] - q[0]) * (p[1] + q[1]);
+  }
+  const l = Math.hypot(a, b, c);
+  if (l < 1e-9) return null;
+  a /= l; b /= l; c /= l;
+  const p0 = pts[0];
+  return { a, b, c, d: a * p0[0] + b * p0[1] + c * p0[2] };
+}
+function pointIn2D(x, y, pts) {
+  let inside = false;
+  for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+    const xi = pts[i][0], yi = pts[i][1], xj = pts[j][0], yj = pts[j][1];
+    if (((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi + 1e-12) + xi)) inside = !inside;
+  }
+  return inside;
+}
+// 制限高 [m]。表面の範囲外は Infinity
+function limitAt(model, x, y) {
+  let best = Infinity, kind = null;
+  for (const p of model.polys) {
+    if (p.noLimit || !p.plane || Math.abs(p.plane.c) < 1e-6) continue;
+    if (!pointIn2D(x, y, p.pts)) continue;
+    const z = (p.plane.d - p.plane.a * x - p.plane.b * y) / p.plane.c;
+    if (z < best) { best = z; kind = p.kind; }
+  }
+  return { z: best, kind };
+}
+
+// 座標変換 ------------------------------------------------------------------
+const R_EARTH = 6378137;
+function enuFromLatLon(lat, lon, lat0, lon0) {
+  const dn = (lat - lat0) * DEG * R_EARTH;
+  const de = (lon - lon0) * DEG * R_EARTH * Math.cos(lat0 * DEG);
+  return [de, dn];
+}
+function latLonFromEnu(e, n, lat0, lon0) {
+  return [lat0 + n / (DEG * R_EARTH), lon0 + e / (DEG * R_EARTH * Math.cos(lat0 * DEG))];
+}
+// ローカル(x前方,y右) ⇄ ENU
+function localToEnu(x, y, headDeg) { const t = headDeg * DEG; return [x * Math.sin(t) + y * Math.cos(t), x * Math.cos(t) - y * Math.sin(t)]; }
+function enuToLocal(e, n, headDeg) { const t = headDeg * DEG; return [e * Math.sin(t) + n * Math.cos(t), e * Math.cos(t) - n * Math.sin(t)]; }
+function bearingOf(e, n) { return ((Math.atan2(e, n) / DEG) + 360) % 360; }
+function fmt(v, d) { return (+v).toFixed(d === undefined ? (Math.abs(v) >= 100 ? 0 : 1) : d); }
+function dir8(b) { return ['北', '北東', '東', '南東', '南', '南西', '西', '北西'][Math.round(((b % 360) + 360) % 360 / 45) % 8]; }
+
+// クォータニオン（three.js 互換: x,y,z,w）-----------------------------------
+function qFromEulerYXZ(x, y, z) {
+  const c1 = Math.cos(x / 2), c2 = Math.cos(y / 2), c3 = Math.cos(z / 2), s1 = Math.sin(x / 2), s2 = Math.sin(y / 2), s3 = Math.sin(z / 2);
+  return [s1 * c2 * c3 + c1 * s2 * s3, c1 * s2 * c3 - s1 * c2 * s3, c1 * c2 * s3 - s1 * s2 * c3, c1 * c2 * c3 + s1 * s2 * s3];
+}
+function qMul(a, b) {
+  return [a[0] * b[3] + a[3] * b[0] + a[1] * b[2] - a[2] * b[1],
+          a[1] * b[3] + a[3] * b[1] + a[2] * b[0] - a[0] * b[2],
+          a[2] * b[3] + a[3] * b[2] + a[0] * b[1] - a[1] * b[0],
+          a[3] * b[3] - a[0] * b[0] - a[1] * b[1] - a[2] * b[2]];
+}
+function qConj(q) { return [-q[0], -q[1], -q[2], q[3]]; }
+function qApply(q, v) {
+  const [x, y, z] = v, [qx, qy, qz, qw] = q;
+  const ix = qw * x + qy * z - qz * y, iy = qw * y + qz * x - qx * z, iz = qw * z + qx * y - qy * x, iw = -qx * x - qy * y - qz * z;
+  return [ix * qw + iw * -qx + iy * -qz - iz * -qy, iy * qw + iw * -qy + iz * -qx - ix * -qz, iz * qw + iw * -qz + ix * -qy - iy * -qx];
+}
+// デバイス姿勢 → カメラ姿勢（three.js DeviceOrientationControls と同じ）
+const Q1 = [-Math.SQRT1_2, 0, 0, Math.SQRT1_2];
+function qFromDevice(alphaDeg, betaDeg, gammaDeg, orientDeg) {
+  const q = qFromEulerYXZ(betaDeg * DEG, alphaDeg * DEG, -gammaDeg * DEG);
+  const o = -orientDeg * DEG;
+  return qMul(qMul(q, Q1), [0, 0, Math.sin(o / 2), Math.cos(o / 2)]);
+}
+function qLook(bearingDeg, pitchDeg) { return qFromEulerYXZ(pitchDeg * DEG, -bearingDeg * DEG, 0); }
+function fwdOf(q) { return qApply(q, [0, 0, -1]); }          // three 座標: X東 Y上 Z南
+function bearingPitch(q) { const f = fwdOf(q); return { bearing: bearingOf(f[0], -f[2]), pitch: Math.asin(Math.max(-1, Math.min(1, f[1]))) / DEG }; }
+// ローカル(x,y,z) → three 座標
+function localToWorld(p, headDeg) { const [e, n] = localToEnu(p[0], p[1], headDeg); return [e, p[2], -n]; }
+// ============================================================================
+// GEOMETRY END
+// ============================================================================
+
+// ============================================================================
+// アプリ状態
+// ============================================================================
+let model = buildModel(S.cfg);
+const gps = { lat: null, lon: null, acc: null, ts: 0 };
+const sensor = { ok: false, q: null, manual: false, yaw: 0, pitch: 0, orient: 0, last: 0 };
+let arActive = false, streamStarted = false;
+const $ = id => document.getElementById(id);
+
+function centerOrFallback() {
+  if (S.cfg.center.lat != null && S.cfg.center.lon != null) return { lat: S.cfg.center.lat, lon: S.cfg.center.lon, fallback: false };
+  if (gps.lat != null) return { lat: gps.lat, lon: gps.lon, fallback: true };
+  return null;
+}
+// 自分の位置（ローカル座標）
+function myLocal() {
+  const c = centerOrFallback();
+  if (S.cfg.posMode === 'manual') {
+    const [e, n] = [S.cfg.manDist * Math.sin(S.cfg.manBrg * DEG), S.cfg.manDist * Math.cos(S.cfg.manBrg * DEG)];
+    return { xy: enuToLocal(e, n, S.cfg.heading), e, n, ok: true };
+  }
+  if (!c || gps.lat == null) return { xy: [0, 0], e: 0, n: 0, ok: false };
+  const [e, n] = enuFromLatLon(gps.lat, gps.lon, c.lat, c.lon);
+  return { xy: enuToLocal(e, n, S.cfg.heading), e, n, ok: !c.fallback };
+}
+
+// ============================================================================
+// タブ
+// ============================================================================
+function showView(v) {
+  document.querySelectorAll('nav.tabs button').forEach(b => b.classList.toggle('on', b.dataset.v === v));
+  document.querySelectorAll('.view').forEach(s => s.classList.toggle('on', s.id === 'v-' + v));
+  $('ar').classList.toggle('on', v === 'ar');
+  $('main').style.display = v === 'ar' ? 'none' : '';
+  arActive = v === 'ar';
+  if (v === 'plan') renderPlan();
+  if (v === 'sec') renderSections();
+  if (v === 'obs') renderObs();
+  if (v === 'set') fillSettings();
+  if (arActive) { requestAnimationFrame(arLoop); if (streamStarted) resumeCam(); }
+}
+document.querySelectorAll('nav.tabs button').forEach(b => b.onclick = () => showView(b.dataset.v));
+
+function toast(m) { const t = $('toast'); t.textContent = m; t.classList.add('on'); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove('on'), 2200); }
+
+// ============================================================================
+// GPS
+// ============================================================================
+function startGps() {
+  if (!navigator.geolocation) { $('pillGps').innerHTML = 'GPS <b>非対応</b>'; return; }
+  navigator.geolocation.watchPosition(p => {
+    gps.lat = p.coords.latitude; gps.lon = p.coords.longitude; gps.acc = p.coords.accuracy; gps.ts = Date.now();
+    $('pillGps').innerHTML = `GPS <b>±${Math.round(gps.acc)}m</b>`;
+    $('centerNote') && updateCenterNote();
+  }, e => { $('pillGps').innerHTML = 'GPS <b>' + (e.code === 1 ? '拒否' : 'エラー') + '</b>'; }, { enableHighAccuracy: true, maximumAge: 2000, timeout: 20000 });
+}
+startGps();
+
+// ============================================================================
+// センサー・カメラ
+// ============================================================================
+function screenAngle() {
+  if (screen.orientation && typeof screen.orientation.angle === 'number') return screen.orientation.angle;
+  return (typeof window.orientation === 'number') ? window.orientation : 0;
+}
+function onOrient(e) {
+  if (e.alpha == null && e.webkitCompassHeading == null) return;
+  let alpha = e.alpha || 0;
+  if (typeof e.webkitCompassHeading === 'number' && !isNaN(e.webkitCompassHeading)) alpha = 360 - e.webkitCompassHeading;
+  alpha -= +S.cfg.headFix || 0;
+  sensor.q = qFromDevice(alpha, e.beta || 0, e.gamma || 0, screenAngle());
+  sensor.ok = true; sensor.manual = false; sensor.last = Date.now();
+}
+async function startSensors() {
+  try {
+    if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+      const r = await DeviceOrientationEvent.requestPermission();
+      if (r !== 'granted') throw new Error('方向センサーの利用が許可されませんでした');
+    }
+    if ('ondeviceorientationabsolute' in window) window.addEventListener('deviceorientationabsolute', onOrient, true);
+    else window.addEventListener('deviceorientation', onOrient, true);
+    return true;
+  } catch (e) { toast(e.message || 'センサー開始に失敗'); return false; }
+}
+async function startCamera() {
+  const v = $('cam');
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { toast('カメラ非対応（HTTPS が必要）'); return false; }
+  try {
+    const st = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false });
+    v.srcObject = st; await v.play().catch(() => {}); streamStarted = true; return true;
+  } catch (e) { toast('カメラを開始できません: ' + (e.name || e.message)); return false; }
+}
+function resumeCam() { const v = $('cam'); if (v.srcObject && v.paused) v.play().catch(() => {}); }
+$('bStart').onclick = async () => {
+  $('start').style.display = 'none';
+  await startCamera();
+  const ok = await startSensors();
+  if (!ok) { sensor.manual = true; toast('ドラッグで視点を動かせます'); }
+  setTimeout(() => { if (!sensor.ok) { sensor.manual = true; toast('方位センサーの値が届かないため手動視点にしました'); } }, 2500);
+};
+$('bStartManual').onclick = async () => { $('start').style.display = 'none'; await startCamera(); sensor.manual = true; };
+(function startNote() {
+  const n = [];
+  if (location.protocol !== 'https:' && location.hostname !== 'localhost') n.push('⚠ カメラ・センサーは HTTPS でのみ動作します。');
+  if (typeof DeviceOrientationEvent === 'undefined') n.push('この端末では方位センサーが利用できません（手動視点で確認できます）。');
+  $('startNote').textContent = n.join(' ');
+})();
+
+// 手動視点（ドラッグ）
+(function manualLook() {
+  const cv = $('cv'); let last = null;
+  const down = (x, y) => { last = [x, y]; };
+  const move = (x, y) => {
+    if (!last || !sensor.manual) return;
+    sensor.yaw = (sensor.yaw + (x - last[0]) * 0.25 + 360) % 360;
+    sensor.pitch = Math.max(-89, Math.min(89, sensor.pitch - (y - last[1]) * 0.25));
+    last = [x, y];
+  };
+  cv.addEventListener('pointerdown', e => down(e.clientX, e.clientY));
+  cv.addEventListener('pointermove', e => move(e.clientX, e.clientY));
+  cv.addEventListener('pointerup', () => last = null);
+  cv.addEventListener('pointercancel', () => last = null);
+})();
+function cameraQ() {
+  if (sensor.ok && !sensor.manual && sensor.q) return sensor.q;
+  return qLook(sensor.yaw, sensor.pitch);
+}
+
+// ============================================================================
+// AR 描画
+// ============================================================================
+const NEAR = 0.3;
+function clipNear(pts) { // カメラ座標で -z >= NEAR の側を残す
+  const out = [];
+  for (let i = 0; i < pts.length; i++) {
+    const a = pts[i], b = pts[(i + 1) % pts.length];
+    const da = -a[2] - NEAR, db = -b[2] - NEAR;
+    if (da >= 0) out.push(a);
+    if ((da >= 0) !== (db >= 0)) { const t = da / (da - db); out.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t]); }
+  }
+  return out;
+}
+function arLoop() {
+  if (!arActive) return;
+  drawAR();
+  requestAnimationFrame(arLoop);
+}
+function drawAR() {
+  const cv = $('cv'), dpr = Math.min(2, window.devicePixelRatio || 1);
+  const Wc = cv.clientWidth, Hc = cv.clientHeight;
+  if (cv.width !== Wc * dpr || cv.height !== Hc * dpr) { cv.width = Wc * dpr; cv.height = Hc * dpr; }
+  const g = cv.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, Wc, Hc);
+
+  const me = myLocal();
+  const q = cameraQ(), qi = qConj(q);
+  const camPos = [me.e, +S.cfg.eyeH || 1.5, -me.n];
+  const f = (Hc / 2) / Math.tan((+S.cfg.vfov || 62) * DEG / 2), cx = Wc / 2, cy = Hc / 2;
+  const toCam = p => { const w = localToWorld(p, S.cfg.heading); return qApply(qi, [w[0] - camPos[0], w[1] - camPos[1], w[2] - camPos[2]]); };
+  const proj = v => [cx + f * v[0] / -v[2], cy - f * v[1] / -v[2]];
+
+  // ポリゴン
+  const items = [];
+  for (const p of model.polys) {
+    const c = clipNear(p.pts.map(toCam));
+    if (c.length < 3) continue;
+    let depth = 0; for (const v of c) depth += -v[2]; depth /= c.length;
+    items.push({ p, scr: c.map(proj), depth });
+  }
+  items.sort((a, b) => b.depth - a.depth);
+  for (const it of items) {
+    g.beginPath(); it.scr.forEach((s, i) => i ? g.lineTo(s[0], s[1]) : g.moveTo(s[0], s[1])); g.closePath();
+    if (!it.p.outline) { g.fillStyle = hexA(it.p.color, it.p.kind === 'pad' ? .35 : .22); g.fill(); }
+    if (it.p.band) continue;
+    g.lineWidth = 1.6; g.strokeStyle = hexA(it.p.color, .95);
+    if (it.p.outline) g.setLineDash([6, 5]); g.stroke(); g.setLineDash([]);
+  }
+  // 目盛線
+  for (const ln of model.lines) {
+    const cam = ln.pts.map(toCam), n = ln.loop ? cam.length : cam.length - 1;
+    g.strokeStyle = hexA(ln.color, ln.thin ? .45 : .85); g.lineWidth = ln.bold ? 2 : 1; g.beginPath();
+    for (let i = 0; i < n; i++) {
+      const A = cam[i], B = cam[(i + 1) % cam.length];
+      const c = clipNear([A, B, B]); if (c.length < 2) continue;
+      const a = proj(c[0]), b = proj(c[1]); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]);
+    }
+    g.stroke();
+  }
+  // 障害物
+  for (const o of S.obstacles) {
+    const base = toCam([o.x, o.y, 0]), top = toCam([o.x, o.y, o.h]);
+    if (-base[2] < NEAR && -top[2] < NEAR) continue;
+    const seg = clipNear([base, top, top]); if (seg.length < 2) continue;
+    const a = proj(seg[0]), b = proj(seg[1]);
+    const col = o.judge === 'NG' ? '#ff6b6b' : o.judge === 'OK' ? '#22d3a6' : '#93a4c6';
+    g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.strokeStyle = col; g.lineWidth = 3; g.stroke();
+    g.beginPath(); g.arc(b[0], b[1], 5, 0, Math.PI * 2); g.fillStyle = col; g.fill();
+    label(g, b[0] + 8, b[1] - 4, `${o.name || '障害物'} ${fmt(o.h)}m ${o.judge}`, col);
+  }
+  // ラベル（重なるものは間引く）
+  const placed = [];
+  for (const lb of model.labels) {
+    const v = toCam(lb.p); if (-v[2] < NEAR) continue;
+    const s = proj(v); if (s[0] < -50 || s[0] > Wc + 50 || s[1] < -20 || s[1] > Hc + 20) continue;
+    const h = lb.big ? 19 : 16, w = lb.text.length * (lb.big ? 9 : 6.5);
+    if (placed.some(r => Math.abs(r[0] - s[0]) < (r[2] + w) / 2 && Math.abs(r[1] - s[1]) < h)) continue;
+    placed.push([s[0], s[1], w]);
+    label(g, s[0], s[1], lb.text, lb.color, lb.big ? 13 : 10);
+  }
+  // 中心マーカー（地面）
+  { const v = toCam([0, 0, 0]); if (-v[2] >= NEAR) { const s = proj(v); g.beginPath(); g.arc(s[0], s[1], 6, 0, Math.PI * 2); g.strokeStyle = '#fff'; g.lineWidth = 2; g.stroke(); } }
+  // 北方向インジケータ（水平線上）
+  drawHorizonTape(g, Wc, Hc, q, f);
+
+  // HUD
+  const bp = bearingPitch(q);
+  const dist = Math.hypot(me.e, me.n), brgToC = bearingOf(-me.e, -me.n);
+  $('chipHead').innerHTML = `方位 <b>${Math.round(bp.bearing)}°</b> <span>${dir8(bp.bearing)}</span>` +
+    `<span id="chipDist">${me.ok || S.cfg.posMode === 'manual' ? `中心まで ${fmt(dist)}m（${dir8(brgToC)}）` : (centerOrFallback() ? '中心＝現在地（仮）' : '位置待ち…')}</span>` +
+    (sensor.manual ? '<span style="color:#f5b544">手動視点</span>' : '');
+  const lim = limitAt(model, me.xy[0], me.xy[1]);
+  $('chipLim').innerHTML = lim.z === Infinity ? '現在地の制限高: 範囲外（制限なし）' :
+    `現在地の制限高: <b>${fmt(lim.z)}m</b>（${KIND[lim.kind].name}）` + (gps.acc && S.cfg.posMode === 'gps' ? ` <span style="opacity:.7">GPS±${Math.round(gps.acc)}m</span>` : '');
+}
+function drawHorizonTape(g, W, H, q, f) {
+  // 水平線上に N/E/S/W を表示
+  const qi = qConj(q);
+  for (const [b, t] of [[0, 'N'], [90, 'E'], [180, 'S'], [270, 'W'], [45, '·'], [135, '·'], [225, '·'], [315, '·']]) {
+    const v = qApply(qi, [Math.sin(b * DEG) * 1000, 0, -Math.cos(b * DEG) * 1000]);
+    if (-v[2] < 1) continue;
+    const x = W / 2 + f * v[0] / -v[2], y = H / 2 - f * v[1] / -v[2];
+    if (x < 0 || x > W) continue;
+    g.fillStyle = 'rgba(255,255,255,.75)'; g.font = (t === '·' ? '10px' : 'bold 13px') + ' -apple-system,sans-serif'; g.textAlign = 'center'; g.fillText(t, x, y - 6);
+    g.fillRect(x - .5, y - 4, 1, 8);
+  }
+  g.textAlign = 'left';
+}
+function label(g, x, y, text, color, size) {
+  g.font = `600 ${size || 11}px -apple-system,sans-serif`;
+  const w = g.measureText(text).width + 8, h = (size || 11) + 6;
+  g.fillStyle = 'rgba(8,14,22,.6)'; roundRect(g, x - 4, y - h + 3, w, h, 4); g.fill();
+  g.fillStyle = color || '#fff'; g.fillText(text, x, y);
+}
+function roundRect(g, x, y, w, h, r) { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); }
+function hexA(hex, a) { const n = parseInt(hex.slice(1), 16); return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`; }
+
+// 視野角スライダー
+$('bFov').onclick = () => { $('fovBox').classList.toggle('on'); $('sheet').classList.remove('on'); $('fovRange').value = S.cfg.vfov; $('fovVal').textContent = S.cfg.vfov; };
+$('fovRange').oninput = e => { S.cfg.vfov = +e.target.value; $('fovVal').textContent = S.cfg.vfov; save(); };
+
+// スクリーンショット
+$('bShot').onclick = async () => {
+  const v = $('cam'), cv = $('cv'), W = cv.width, H = cv.height;
+  const out = document.createElement('canvas'); out.width = W; out.height = H;
+  const g = out.getContext('2d'); g.fillStyle = '#000'; g.fillRect(0, 0, W, H);
+  if (v.videoWidth) {
+    const s = Math.max(W / v.videoWidth, H / v.videoHeight), dw = v.videoWidth * s, dh = v.videoHeight * s;
+    g.drawImage(v, (W - dw) / 2, (H - dh) / 2, dw, dh);
+  }
+  g.drawImage(cv, 0, 0);
+  const c = centerOrFallback(), dpr = W / cv.clientWidth;
+  g.font = `${12 * dpr}px -apple-system,sans-serif`; g.fillStyle = 'rgba(0,0,0,.55)'; g.fillRect(0, H - 44 * dpr, W, 44 * dpr); g.fillStyle = '#fff';
+  g.fillText(`${new Date().toLocaleString('ja-JP')}  場外離着陸場AR  進入方位 ${S.cfg.heading}°  D′${S.cfg.dPrime}m` + (c ? `  中心 ${c.lat.toFixed(6)}, ${c.lon.toFixed(6)}` : ''), 10 * dpr, H - 26 * dpr);
+  g.fillText(`進入表面 着陸1/${S.cfg.ldSlope} 離陸1/${S.cfg.toSlope} 長さ${S.cfg.apLen}m  転移表面 1/${S.cfg.trSlope} 上端${S.cfg.trTop}m  視野角${S.cfg.vfov}°`, 10 * dpr, H - 10 * dpr);
+  out.toBlob(async blob => {
+    const file = new File([blob], `helisite-${Date.now()}.png`, { type: 'image/png' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) { try { await navigator.share({ files: [file], title: '場外離着陸場 AR' }); return; } catch (e) { if (e.name === 'AbortError') return; } }
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = file.name; a.target = '_blank'; document.body.appendChild(a); a.click(); a.remove();
+    toast('画像を保存しました');
+  }, 'image/png');
+};
+
+// ============================================================================
+// 障害物計測（AR）
+// ============================================================================
+const meas = { step: 0, base: null, top: null };
+$('bMeas').onclick = () => { $('fovBox').classList.remove('on'); if (meas.step) { meas.step = 0; sheet(false); $('bMeas').classList.remove('on'); } else { meas.step = 1; $('bMeas').classList.add('on'); showMeasSheet(); } };
+function sheet(on, html) { const s = $('sheet'); s.classList.toggle('on', !!on); if (html != null) s.innerHTML = html; }
+function showMeasSheet() {
+  if (meas.step === 1) sheet(true, `<h3>① 障害物の根元に照準を合わせる</h3><div style="color:#9fb0cf">地面との接点（根元）に十字を合わせてから「記録」。見下ろす角度とカメラ高さ ${S.cfg.eyeH}m から距離を求めます。</div>
+    <button class="btn pri" id="mRec">記録</button><button class="btn" id="mManual">距離を手入力する</button>`);
+  else if (meas.step === 2) sheet(true, `<h3>② 障害物の頂部に照準を合わせる</h3><div style="color:#9fb0cf">距離 <b>${fmt(meas.base.dist)}m</b>（方位 ${Math.round(meas.base.bearing)}°）。頂部に十字を合わせて「記録」。</div>
+    <button class="btn pri" id="mRec">記録</button><button class="btn" id="mBack">① に戻る</button>`);
+  else if (meas.step === 3) {
+    const r = meas.result;
+    sheet(true, `<h3>③ 判定結果</h3><div class="kv">
+      <div class="k">距離 / 方位</div><div class="v">${fmt(r.dist)}m / ${Math.round(r.bearing)}°</div>
+      <div class="k">高さ</div><div class="v">${fmt(r.h)}m</div>
+      <div class="k">制限高</div><div class="v">${r.lim === Infinity ? '範囲外' : fmt(r.lim) + 'm（' + KIND[r.kind].name + '）'}</div>
+      <div class="k">判定</div><div class="v ${r.judge === 'NG' ? 'ng' : 'ok'}">${judgeText(r)}</div></div>
+      <div class="row" style="margin-top:8px"><input type="text" id="mName" placeholder="名称（任意）"><input type="number" id="mH" value="${fmt(r.h)}" step="0.1" style="width:90px" title="高さを修正"></div>
+      <button class="btn pri" id="mSave">保存</button><button class="btn" id="mBack">やり直す</button>`);
+    $('mH').oninput = e => { r.h = +e.target.value; judge(r); showMeasSheet(); $('mH').focus(); };
+    $('mSave').onclick = () => { r.name = $('mName').value.trim(); S.obstacles.push(r); save(); toast('障害物を保存しました'); meas.step = 0; sheet(false); $('bMeas').classList.remove('on'); };
+  } else if (meas.step === 4) {
+    sheet(true, `<h3>距離を手入力</h3><div class="row"><input type="number" id="mDist" placeholder="水平距離 m" step="1"></div>
+      <button class="btn pri" id="mRec">この距離で頂部へ</button><button class="btn" id="mBack">戻る</button>`);
+  }
+  const rec = $('mRec'); if (rec) rec.onclick = measRecord;
+  const mb = $('mBack'); if (mb) mb.onclick = () => { meas.step = 1; showMeasSheet(); };
+  const mm = $('mManual'); if (mm) mm.onclick = () => { meas.step = 4; showMeasSheet(); };
+}
+function measRecord() {
+  const bp = bearingPitch(cameraQ());
+  const me = myLocal();
+  if (meas.step === 1) {
+    if (bp.pitch >= -1) { toast('根元を見下ろす角度が必要です（または距離を手入力）'); return; }
+    const dist = (+S.cfg.eyeH || 1.5) / Math.tan(-bp.pitch * DEG);
+    meas.base = { dist, bearing: bp.bearing, me }; meas.step = 2;
+  } else if (meas.step === 4) {
+    const dist = +$('mDist').value; if (!(dist > 0)) { toast('距離を入力してください'); return; }
+    meas.base = { dist, bearing: bp.bearing, me }; meas.step = 2;
+  } else if (meas.step === 2) {
+    const h = (+S.cfg.eyeH || 1.5) + meas.base.dist * Math.tan(bp.pitch * DEG);
+    const b = meas.base.bearing * DEG;
+    const e = meas.base.me.e + meas.base.dist * Math.sin(b), n = meas.base.me.n + meas.base.dist * Math.cos(b);
+    const xy = enuToLocal(e, n, S.cfg.heading);
+    const distC = Math.hypot(e, n), brgC = bearingOf(e, n);
+    const r = { x: xy[0], y: xy[1], e, n, h: Math.max(0, h), dist: distC, bearing: brgC, ts: Date.now(), name: '' };
+    judge(r); meas.result = r; meas.step = 3;
+  }
+  showMeasSheet();
+}
+function judge(o) {
+  const lim = limitAt(model, o.x, o.y);
+  o.lim = lim.z; o.kind = lim.kind;
+  o.judge = lim.z === Infinity ? 'NA' : (o.h > lim.z ? 'NG' : 'OK');
+  return o;
+}
+function judgeText(o) {
+  if (o.judge === 'NA') return '表面の範囲外';
+  if (o.judge === 'NG') return `NG 突出 ${fmt(o.h - o.lim)}m`;
+  return `OK 余裕 ${fmt(o.lim - o.h)}m`;
+}
+function rejudgeAll() { for (const o of S.obstacles) { const xy = enuToLocal(o.e, o.n, S.cfg.heading); o.x = xy[0]; o.y = xy[1]; judge(o); } }
+
+// ============================================================================
+// 障害物タブ
+// ============================================================================
+$('bObsAdd').onclick = () => {
+  const brg = +$('oBrg').value, dist = +$('oDist').value, h = +$('oH').value;
+  if (!(dist >= 0) || !(h >= 0) || isNaN(brg)) { toast('方位・距離・高さを入力してください'); return; }
+  const e = dist * Math.sin(brg * DEG), n = dist * Math.cos(brg * DEG), xy = enuToLocal(e, n, S.cfg.heading);
+  const o = judge({ x: xy[0], y: xy[1], e, n, h, dist, bearing: (brg + 360) % 360, ts: Date.now(), name: $('oName').value.trim() });
+  S.obstacles.push(o); save(); renderObs(); toast(judgeText(o));
+  $('oName').value = '';
+};
+function renderObs() {
+  const l = $('obsList'); $('obsCount').textContent = S.obstacles.length ? `(${S.obstacles.length})` : '';
+  if (!S.obstacles.length) { l.innerHTML = '<div class="empty">まだ障害物がありません</div>'; return; }
+  l.innerHTML = S.obstacles.map((o, i) => `<div class="item"><div>
+      <div class="t">${esc(o.name || '障害物 ' + (i + 1))} <span class="tag ${o.judge === 'NG' ? 'ng' : o.judge === 'OK' ? 'ok' : 'na'}">${judgeText(o)}</span></div>
+      <div class="s">中心から ${fmt(o.dist)}m・方位 ${Math.round(o.bearing)}°（${dir8(o.bearing)}）／ 高さ ${fmt(o.h)}m ／ 制限高 ${o.lim === Infinity ? '—' : fmt(o.lim) + 'm（' + KIND[o.kind].name + '）'}</div></div>
+      <button class="btn sm warn" data-del="${i}">削除</button></div>`).join('');
+  l.querySelectorAll('[data-del]').forEach(b => b.onclick = () => { S.obstacles.splice(+b.dataset.del, 1); save(); renderObs(); });
+}
+function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+
+// ============================================================================
+// 平面図
+// ============================================================================
+$('bPlanRot').onclick = () => { S.cfg.planNorthUp = !S.cfg.planNorthUp; save(); renderPlan(); };
+function renderPlan() {
+  const northUp = S.cfg.planNorthUp;
+  $('bPlanRot').textContent = northUp ? '🧭 北を上' : '➡ 進入方向を上';
+  const H = S.cfg.heading;
+  // ローカル → 図面座標 (u 右, v 上)
+  const map = p => northUp ? localToEnu(p[0], p[1], H) : [p[1], p[0]];
+  const pts = []; for (const p of model.polys) for (const q of p.pts) pts.push(map(q));
+  for (const o of S.obstacles) pts.push(map([o.x, o.y]));
+  const me = myLocal(); if (me.ok) pts.push(map(me.xy));
+  let minU = Infinity, maxU = -Infinity, minV = Infinity, maxV = -Infinity;
+  for (const [u, v] of pts) { minU = Math.min(minU, u); maxU = Math.max(maxU, u); minV = Math.min(minV, v); maxV = Math.max(maxV, v); }
+  const pad = 30, Wd = 520, Hd = Math.max(300, Math.min(620, Wd * (maxV - minV + 1) / (maxU - minU + 1)));
+  const s = Math.min((Wd - pad * 2) / (maxU - minU || 1), (Hd - pad * 2) / (maxV - minV || 1));
+  const ox = (Wd - (maxU - minU) * s) / 2 - minU * s, oy = (Hd + (maxV - minV) * s) / 2 + minV * s;
+  const X = u => ox + u * s, Y = v => oy - v * s;
+  const P = p => { const [u, v] = map(p); return `${X(u).toFixed(1)},${Y(v).toFixed(1)}`; };
+  let svg = `<svg class="fig" viewBox="0 0 ${Wd} ${Hd}" xmlns="http://www.w3.org/2000/svg">`;
+  // 帯 → 進入表面 → 着陸帯 の順で描画
+  const order = ['tr', 'ols', 'apto', 'apld', 'pad', 'tlof'];
+  for (const k of order) for (const p of model.polys) if (p.kind === k)
+    svg += `<polygon points="${p.pts.map(P).join(' ')}" fill="${p.outline ? 'none' : p.color}" fill-opacity="${p.kind === 'pad' ? .55 : .3}" stroke="${p.band ? 'none' : p.color}" stroke-width="1.2" ${p.outline ? 'stroke-dasharray="4 3"' : ''}/>`;
+  for (const ln of model.lines) {
+    if (ln.thin) continue;
+    svg += `<${ln.loop ? 'polygon' : 'polyline'} points="${ln.pts.map(P).join(' ')}" fill="none" stroke="${ln.color}" stroke-width="${ln.bold ? 1.2 : .8}" stroke-opacity=".8"/>`;
+  }
+  // ラベル
+  const d = model.dims;
+  const T = (p, t, col, sz) => { const [u, v] = map(p); return `<text x="${X(u).toFixed(1)}" y="${Y(v).toFixed(1)}" fill="${col || '#e8eefc'}" font-size="${sz || 10}" text-anchor="middle" font-weight="700">${t}</text>`; };
+  svg += T([d.L / 2 + d.La * 0.55, 0, 0], `離陸側 1/${S.cfg.toSlope}`, '#c4b5fd') + T([-(d.L / 2 + d.La * 0.55), 0, 0], `着陸側 1/${S.cfg.ldSlope}`, '#93c5fd');
+  // 障害物
+  for (const o of S.obstacles) {
+    const [u, v] = map([o.x, o.y]); const col = o.judge === 'NG' ? '#ff6b6b' : o.judge === 'OK' ? '#22d3a6' : '#93a4c6';
+    svg += `<circle cx="${X(u)}" cy="${Y(v)}" r="4" fill="${col}" stroke="#000" stroke-width=".6"/><text x="${X(u) + 6}" y="${Y(v) - 4}" fill="${col}" font-size="9" font-weight="700">${esc(o.name || '')} ${fmt(o.h)}m</text>`;
+  }
+  // 自分
+  if (me.ok || S.cfg.posMode === 'manual') { const [u, v] = map(me.xy); svg += `<circle cx="${X(u)}" cy="${Y(v)}" r="5" fill="#4f8cff" stroke="#fff" stroke-width="1.5"/>`; }
+  // 中心
+  svg += `<circle cx="${X(map([0, 0])[0])}" cy="${Y(map([0, 0])[1])}" r="2.5" fill="#fff"/>`;
+  // 北矢印・進入方位矢印
+  const ang = northUp ? 0 : H; // 図の上方向から北への角度（時計回り）
+  svg += `<g transform="translate(${Wd - 34},36) rotate(${-ang})"><polygon points="0,-18 6,6 0,2 -6,6" fill="#f5b544"/><text y="-22" text-anchor="middle" fill="#f5b544" font-size="11" font-weight="800">N</text></g>`;
+  // スケールバー
+  const bar = [50, 100, 200, 500].find(b => b * s > 60) || 1000;
+  svg += `<line x1="${pad}" y1="${Hd - 14}" x2="${pad + bar * s}" y2="${Hd - 14}" stroke="#e8eefc" stroke-width="2"/><text x="${pad}" y="${Hd - 20}" fill="#93a4c6" font-size="10">${bar} m</text>`;
+  svg += '</svg>';
+  $('planSvg').innerHTML = svg;
+  $('legend').innerHTML = Object.entries(KIND).map(([k, v]) => `<span><i style="background:${v.color}"></i>${v.name}</span>`).join('');
+  const c = centerOrFallback();
+  $('planKv').innerHTML = kv([
+    ['中心', c ? `${c.lat.toFixed(6)}, ${c.lon.toFixed(6)}${c.fallback ? '（現在地・仮）' : ''}` : '未設定'],
+    ['進入方位', `${S.cfg.heading}°（${dir8(S.cfg.heading)}）`],
+    ['着陸帯', `${fmt(d.L)} × ${fmt(d.W)} m（接地帯 ${fmt(d.T)} m 角）`],
+    ['進入表面', `長さ ${d.La} m・外側幅 ${d.Wo} m・着陸側 1/${S.cfg.ldSlope}（末端 h${fmt(d.zLd)} m）・離陸側 1/${S.cfg.toSlope}（末端 h${fmt(d.zTo)} m）`],
+    ['側方表面', `${d.olsW > 0 ? `物件制限表面 1/${S.cfg.olsSlope}×${d.olsW} m → ` : ''}転移表面 1/${S.cfg.trSlope}、上端 ${d.top} m`],
+    ['自分の位置', me.ok || S.cfg.posMode === 'manual' ? `中心から ${fmt(Math.hypot(me.e, me.n))} m・方位 ${Math.round(bearingOf(me.e, me.n))}°` : '—'],
+  ]);
+}
+function kv(rows) { return rows.map(([k, v]) => `<div class="k">${k}</div><div class="v" style="text-align:left;font-weight:600">${v}</div>`).join(''); }
+
+// ============================================================================
+// 断面図
+// ============================================================================
+function renderSections() {
+  const d = model.dims;
+  // --- 縦断 ---
+  {
+    const xMin = -(d.L / 2 + d.La), xMax = d.L / 2 + d.La, zMax = Math.max(d.zLd, d.zTo, d.top, ...S.obstacles.map(o => o.h)) * 1.08;
+    const Wd = 520, pad = { l: 34, r: 14, t: 18, b: 26 }, plotW = Wd - pad.l - pad.r;
+    const sx = plotW / (xMax - xMin);
+    const ve = niceVE((plotW * 0.4) / (zMax * sx));
+    const Hd = pad.t + pad.b + zMax * sx * ve;
+    const X = x => pad.l + (x - xMin) * sx, Z = z => Hd - pad.b - z * sx * ve;
+    let svg = `<svg class="fig" viewBox="0 0 ${Wd} ${Hd.toFixed(0)}" xmlns="http://www.w3.org/2000/svg">`;
+    svg += `<line x1="${pad.l}" y1="${Z(0)}" x2="${Wd - pad.r}" y2="${Z(0)}" stroke="#93a4c6"/>`;
+    svg += `<rect x="${X(-d.L / 2)}" y="${Z(0) - 3}" width="${d.L * sx}" height="4" fill="${KIND.pad.color}"/>`;
+    svg += `<polygon points="${X(d.L / 2)},${Z(0)} ${X(xMax)},${Z(d.zTo)} ${X(xMax)},${Z(0)}" fill="${KIND.apto.color}" fill-opacity=".25" stroke="${KIND.apto.color}" stroke-width="1.5"/>`;
+    svg += `<polygon points="${X(-d.L / 2)},${Z(0)} ${X(xMin)},${Z(d.zLd)} ${X(xMin)},${Z(0)}" fill="${KIND.apld.color}" fill-opacity=".25" stroke="${KIND.apld.color}" stroke-width="1.5"/>`;
+    svg += `<line x1="${pad.l}" y1="${Z(d.top)}" x2="${Wd - pad.r}" y2="${Z(d.top)}" stroke="${KIND.tr.color}" stroke-dasharray="4 4" stroke-opacity=".8"/>`;
+    svg += txt(Wd - pad.r - 2, Z(d.top) - 3, `転移表面上端 ${d.top}m`, KIND.tr.color, 'end');
+    svg += txt(X(xMax) - 3, Z(d.zTo) + 12, `1/${S.cfg.toSlope}  h=${fmt(d.zTo)}m`, '#c4b5fd', 'end') + txt(X(xMin) + 3, Z(d.zLd) + 12, `1/${S.cfg.ldSlope}  h=${fmt(d.zLd)}m`, '#93c5fd', 'start');
+    svg += txt(X(0), Hd - 8, `着陸帯 ${fmt(d.L)}m`, '#93a4c6', 'middle') + txt(X(xMin), Hd - 8, `← 着陸側 ${d.La}m`, '#93a4c6', 'start') + txt(X(xMax), Hd - 8, `離陸側 ${d.La}m →`, '#93a4c6', 'end');
+    svg += txt(pad.l + 2, pad.t - 4, `縦倍率 ×${ve}`, '#64769b', 'start');
+    for (const o of S.obstacles) {
+      const hw = halfWidthAt(d, o.x); const inside = hw != null && Math.abs(o.y) <= hw;
+      const col = o.judge === 'NG' ? '#ff6b6b' : o.judge === 'OK' ? '#22d3a6' : '#93a4c6';
+      if (o.x < xMin || o.x > xMax) continue;
+      svg += `<line x1="${X(o.x)}" y1="${Z(0)}" x2="${X(o.x)}" y2="${Z(o.h)}" stroke="${col}" stroke-width="3" stroke-opacity="${inside ? 1 : .35}"/>` + txt(X(o.x), Z(o.h) - 4, `${esc(o.name || '')} ${fmt(o.h)}m`, col, 'middle', inside ? 1 : .5);
+    }
+    svg += '</svg>'; $('secLong').innerHTML = svg;
+  }
+  // --- 横断 ---
+  {
+    const side = d.olsW + d.trN * Math.max(0, d.top - d.olsW / d.olsN);
+    const yMax = d.W / 2 + side + 10, zMax = Math.max(d.top, ...S.obstacles.map(o => o.h)) * 1.1;
+    const Wd = 520, pad = { l: 14, r: 14, t: 18, b: 26 }, plotW = Wd - pad.l - pad.r;
+    const s = Math.min(plotW / (2 * yMax), (Wd * 0.5) / zMax);
+    const Hd = pad.t + pad.b + zMax * s;
+    const Y = y => Wd / 2 + y * s, Z = z => Hd - pad.b - z * s;
+    let svg = `<svg class="fig" viewBox="0 0 ${Wd} ${Hd.toFixed(0)}" xmlns="http://www.w3.org/2000/svg">`;
+    svg += `<line x1="${pad.l}" y1="${Z(0)}" x2="${Wd - pad.r}" y2="${Z(0)}" stroke="#93a4c6"/>`;
+    svg += `<rect x="${Y(-d.W / 2)}" y="${Z(0) - 3}" width="${d.W * s}" height="4" fill="${KIND.pad.color}"/>`;
+    for (const sg of [1, -1]) {
+      const y0 = sg * d.W / 2, y1 = sg * (d.W / 2 + d.olsW), z1 = Math.min(d.top, d.olsW / d.olsN), y2 = sg * (d.W / 2 + side);
+      if (d.olsW > 0) svg += `<line x1="${Y(y0)}" y1="${Z(0)}" x2="${Y(y1)}" y2="${Z(z1)}" stroke="${KIND.ols.color}" stroke-width="2"/>`;
+      svg += `<line x1="${Y(y1)}" y1="${Z(z1)}" x2="${Y(y2)}" y2="${Z(d.top)}" stroke="${KIND.tr.color}" stroke-width="2"/>`;
+      svg += `<line x1="${Y(y2)}" y1="${Z(d.top)}" x2="${Y(y2)}" y2="${Z(0)}" stroke="${KIND.tr.color}" stroke-dasharray="3 3" stroke-opacity=".6"/>`;
+      svg += txt(Y(sg * (d.W / 2 + side / 2)), Z(d.top / 2) - 6, `転移 1/${S.cfg.trSlope}`, KIND.tr.color, 'middle');
+      if (d.olsW > 0) svg += txt(Y(y1), Z(z1) + 12, `物件制限 1/${S.cfg.olsSlope}·${d.olsW}m`, KIND.ols.color, sg > 0 ? 'start' : 'end');
+    }
+    svg += txt(Wd / 2, Hd - 8, `着陸帯 幅 ${fmt(d.W)}m`, '#93a4c6', 'middle') + txt(Y(d.W / 2 + side), Z(d.top) - 4, `h=${d.top}m`, KIND.tr.color, 'middle');
+    svg += txt(pad.l + 2, pad.t - 4, '縦横同倍率', '#64769b', 'start');
+    for (const o of S.obstacles) {
+      const inside = Math.abs(o.x) <= d.L / 2; const col = o.judge === 'NG' ? '#ff6b6b' : o.judge === 'OK' ? '#22d3a6' : '#93a4c6';
+      if (Math.abs(o.y) > yMax) continue;
+      svg += `<line x1="${Y(o.y)}" y1="${Z(0)}" x2="${Y(o.y)}" y2="${Z(o.h)}" stroke="${col}" stroke-width="3" stroke-opacity="${inside ? 1 : .35}"/>` + txt(Y(o.y), Z(o.h) - 4, `${esc(o.name || '')} ${fmt(o.h)}m`, col, 'middle', inside ? 1 : .5);
+    }
+    svg += '</svg>'; $('secCross').innerHTML = svg;
+  }
+}
+function halfWidthAt(d, x) {
+  const ax = Math.abs(x);
+  if (ax <= d.L / 2) return d.W / 2;
+  if (ax <= d.L / 2 + d.La) { const t = (ax - d.L / 2) / d.La; return d.W / 2 + (d.Wo / 2 - d.W / 2) * t; }
+  return null;
+}
+function niceVE(v) { if (v <= 1) return 1; const c = [1, 1.5, 2, 3, 4, 5, 8, 10]; let best = 1; for (const x of c) if (x <= v) best = x; return best; }
+function txt(x, y, t, col, anchor, op) { return `<text x="${(+x).toFixed(1)}" y="${(+y).toFixed(1)}" fill="${col}" font-size="10" font-weight="700" text-anchor="${anchor || 'start'}" opacity="${op == null ? 1 : op}">${t}</text>`; }
+
+// ============================================================================
+// 設定
+// ============================================================================
+const FIELDS = ['dPrime', 'padL', 'padW', 'tlofRatio', 'ldSlope', 'toSlope', 'apLen', 'apOuterW', 'olsW', 'olsSlope', 'trSlope', 'trTop', 'vfov', 'eyeH', 'headFix', 'manBrg', 'manDist'];
+function fillSettings() {
+  for (const k of FIELDS) $(k).value = S.cfg[k] == null ? '' : S.cfg[k];
+  $('cLat').value = S.cfg.center.lat == null ? '' : S.cfg.center.lat;
+  $('cLon').value = S.cfg.center.lon == null ? '' : S.cfg.center.lon;
+  $('cHead').value = S.cfg.heading;
+  $('posMode').value = S.cfg.posMode;
+  $('manualPos').style.display = S.cfg.posMode === 'manual' ? '' : 'none';
+  updateCenterNote();
+}
+function updateCenterNote() {
+  const n = $('centerNote'); if (!n) return;
+  n.innerHTML = (S.cfg.center.lat == null ? '<b>未設定</b>：設定するまで現在地を仮の中心として表示します。' : `設定済み。`) +
+    (gps.lat != null ? ` 現在地 ${gps.lat.toFixed(6)}, ${gps.lon.toFixed(6)}（精度 ±${Math.round(gps.acc)} m）` : ' 現在地を取得中…');
+}
+function applySettings() {
+  for (const k of FIELDS) { const v = $(k).value; S.cfg[k] = v === '' ? (k === 'padL' || k === 'padW' ? null : DEF[k]) : +v; }
+  const lat = $('cLat').value, lon = $('cLon').value;
+  S.cfg.center = (lat !== '' && lon !== '') ? { lat: +lat, lon: +lon } : { lat: null, lon: null };
+  S.cfg.heading = ((+$('cHead').value || 0) % 360 + 360) % 360;
+  S.cfg.posMode = $('posMode').value;
+  $('manualPos').style.display = S.cfg.posMode === 'manual' ? '' : 'none';
+  model = buildModel(S.cfg); rejudgeAll(); save(); updateCenterNote();
+}
+document.querySelectorAll('#v-set input, #v-set select').forEach(el => el.addEventListener('change', applySettings));
+$('bCenterHere').onclick = () => {
+  if (gps.lat == null) { toast('現在地がまだ取得できていません'); return; }
+  toast(`現在地を取得中（5秒）… 精度 ±${Math.round(gps.acc)}m`);
+  let best = { lat: gps.lat, lon: gps.lon, acc: gps.acc };
+  const t0 = Date.now();
+  const iv = setInterval(() => {
+    if (gps.acc < best.acc) best = { lat: gps.lat, lon: gps.lon, acc: gps.acc };
+    if (Date.now() - t0 > 5000) {
+      clearInterval(iv);
+      S.cfg.center = { lat: best.lat, lon: best.lon }; $('cLat').value = best.lat; $('cLon').value = best.lon;
+      applySettings(); toast(`中心を設定しました（精度 ±${Math.round(best.acc)}m）`);
+    }
+  }, 250);
+};
+$('bHeadDev').onclick = async () => {
+  if (!sensor.ok) { const ok = await startSensors(); if (!ok) return; await new Promise(r => setTimeout(r, 600)); }
+  if (!sensor.ok || !sensor.q) { toast('方位がまだ取得できません。AR 画面で一度センサーを開始してください'); return; }
+  const b = Math.round(bearingPitch(sensor.q).bearing);
+  $('cHead').value = b; applySettings(); toast(`進入方位を ${b}° に設定`);
+};
+$('bExport').onclick = () => {
+  const blob = new Blob([JSON.stringify(S, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `helisite-${new Date().toISOString().slice(0, 10)}.json`; document.body.appendChild(a); a.click(); a.remove();
+};
+$('bImport').onclick = () => $('fileImp').click();
+$('fileImp').onchange = async e => {
+  const f = e.target.files[0]; if (!f) return;
+  try { const j = JSON.parse(await f.text()); S = { cfg: Object.assign({}, DEF, j.cfg || {}), obstacles: j.obstacles || [] }; model = buildModel(S.cfg); rejudgeAll(); save(); fillSettings(); toast('インポートしました'); }
+  catch (err) { toast('読み込めませんでした'); }
+  e.target.value = '';
+};
+$('bReset').onclick = () => { if (!confirm('設定を初期値に戻しますか？（障害物は残ります）')) return; S.cfg = Object.assign({}, DEF); model = buildModel(S.cfg); rejudgeAll(); save(); fillSettings(); toast('初期値に戻しました'); };
+$('bCopyPlan').onclick = async () => {
+  const d = model.dims, c = centerOrFallback();
+  const t = [`【場外離着陸場 計画概要】`, c ? `中心: ${c.lat.toFixed(6)}, ${c.lon.toFixed(6)}` : '中心: 未設定', `進入方位（着陸時機首方位）: ${S.cfg.heading}°`,
+    `使用機 D′: ${S.cfg.dPrime} m`, `着陸帯: ${fmt(d.L)} × ${fmt(d.W)} m（接地帯 ${fmt(d.T)} m 角）`,
+    `進入表面: 長さ ${d.La} m、外側幅 ${d.Wo} m、着陸側 1/${S.cfg.ldSlope}、離陸側 1/${S.cfg.toSlope}`,
+    `側方: ${d.olsW > 0 ? `物件制限表面 1/${S.cfg.olsSlope}（${d.olsW} m）→ ` : ''}転移表面 1/${S.cfg.trSlope}、上端 ${d.top} m`,
+    `障害物 ${S.obstacles.length} 件:`, ...S.obstacles.map((o, i) => `  ${i + 1}. ${o.name || '障害物'}: 方位 ${Math.round(o.bearing)}° 距離 ${fmt(o.dist)} m 高さ ${fmt(o.h)} m → ${judgeText(o)}`)].join('\n');
+  try { await navigator.clipboard.writeText(t); toast('コピーしました'); } catch (e) { prompt('コピーしてください', t); }
+};
+
+// ============================================================================
+// 起動
+// ============================================================================
+fillSettings();
+showView('ar');
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(() => {});
+window.addEventListener('resize', () => { if (arActive) drawAR(); });
+</script>
+</body>
+</html>
