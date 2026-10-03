@@ -88,7 +88,14 @@
     background:rgba(16,24,36,.92); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px);
     border-top:1px solid var(--line); padding:6px 4px calc(6px + env(safe-area-inset-bottom)); height:calc(var(--tabh) + env(safe-area-inset-bottom))}
   @media (prefers-color-scheme: light){ nav.tabs{background:rgba(255,255,255,.9)} }
-  nav.tabs button{flex:1; background:none; border:none; color:var(--mut); font-size:10px; font-weight:700; display:flex; flex-direction:column; align-items:center; gap:3px; padding:4px 0}
+  nav.tabs button{flex:1; background:none; border:none; color:var(--mut); font-size:10px; font-weight:700; display:flex; flex-direction:column; align-items:center; gap:3px; padding:4px 0; white-space:nowrap}
+  a.btn{text-decoration:none}
+  .prog{height:6px; background:var(--card2); border:1px solid var(--line); border-radius:999px; overflow:hidden; margin-top:8px}
+  .prog i{display:block; height:100%; background:linear-gradient(90deg,var(--acc),var(--acc2)); width:0}
+  .cand{display:flex; justify-content:space-between; align-items:center; gap:10px; padding:10px 0; border-top:1px solid var(--line)}
+  .cand:first-child{border-top:none}
+  .cand .t{font-weight:700; font-size:14px} .cand .s{font-size:12px; color:var(--sub); margin-top:2px}
+  select.sm{width:auto; padding:7px 10px; font-size:12px; border-radius:9px}
   nav.tabs button span.i{font-size:20px; line-height:1}
   nav.tabs button.on{color:var(--acc)}
 
@@ -147,6 +154,7 @@
   <div class="fab">
     <button id="bShot" title="スクリーンショット">📷</button>
     <button id="bMeas" title="障害物を計測">📐</button>
+    <button id="bSky" title="スカイライン計測">🌅</button>
     <button id="bFov" title="視野角">🎚</button>
   </div>
   <div class="slider" id="fovBox">
@@ -171,28 +179,88 @@
     <div class="pill" id="pillGps">GPS <b>--</b></div>
   </header>
 
-  <!-- ===== 平面図 ===== -->
-  <section class="view" id="v-plan">
+  <!-- ===== 図面 ===== -->
+  <section class="view" id="v-draw">
     <div class="card">
-      <div class="row" style="justify-content:space-between; margin-bottom:10px">
+      <div class="row" style="justify-content:space-between; margin-bottom:10px; flex-wrap:wrap">
         <h2 style="margin:0">平面図</h2>
-        <button class="btn sm" id="bPlanRot">🧭 北を上</button>
+        <div class="row">
+          <select id="planBase" class="sm"><option value="none">背景なし</option><option value="photo">航空写真</option><option value="std">地図</option></select>
+          <button class="btn sm" id="bPlanRot">🧭 北を上</button>
+        </div>
       </div>
       <div id="planSvg"></div>
       <div class="legend" id="legend"></div>
+      <p class="note" id="planBaseNote" style="margin-top:6px"></p>
     </div>
     <div class="card">
       <h2>配置</h2>
       <div class="kv" id="planKv"></div>
     </div>
-  </section>
-
-  <!-- ===== 断面図 ===== -->
-  <section class="view" id="v-sec">
     <div class="card"><h2>縦断面（進入方向）</h2><div id="secLong"></div>
-      <p class="note">着陸帯中心から各軸方向へ見た制限高のプロファイル。縦方向は見やすさのため拡大表示（倍率は図中に表示）。棒は障害物で、その表面の帯の外にあるものは薄く表示。</p></div>
+      <p class="note">着陸帯中心から各軸方向へ見た制限高のプロファイル。縦方向は見やすさのため拡大表示（倍率は図中に表示）。棒は障害物で、その表面の帯の外にあるものは薄く表示。茶色の線は地理院標高による地盤（机上チェック実行後）、白い破線はスカイライン計測の実測仰角。</p></div>
     <div class="card"><h2>横断面（着陸帯中央）</h2><div id="secCross"></div>
       <p class="note">着陸帯中心で進入軸に直交する断面（右＝進入方位の右手）。側方は物件制限表面 → 転移表面。離陸方位が横向きの場合はその側に離陸側の進入表面が現れます。着陸帯の長さの範囲内にある障害物を濃く表示。</p></div>
+  </section>
+
+  <!-- ===== 経路（スカイライン） ===== -->
+  <section class="view" id="v-route">
+    <div class="card">
+      <h2>スカイライン計測</h2>
+      <p class="note">着陸帯の中心に立ち、AR 画面の 🌅 でゆっくり 1 周すると、方位ごとの地物の仰角（スカイライン）を記録します。中心から見た各表面は一定の仰角の線に見えるので、距離が分からなくても「表面を突き抜ける方向」を判定できます。</p>
+      <div class="grid2" style="margin-top:8px">
+        <div class="stat"><div class="k">計測済み方位</div><div class="v" id="skyCov">0<small>/360°</small></div></div>
+        <div class="stat"><div class="k">現在の配置での抵触</div><div class="v" id="skyViol">—</div></div>
+      </div>
+      <div class="prog"><i id="skyProg"></i></div>
+      <div class="grid2" style="margin-top:10px">
+        <button class="btn pri" id="bSkyStart">🌅 AR でスイープ開始</button>
+        <button class="btn warn" id="bSkyClear">🗑 計測をクリア</button>
+      </div>
+    </div>
+    <div class="card">
+      <h2>方位別 仰角プロファイル</h2>
+      <div id="skyChart"></div>
+      <div id="skyPolar" style="margin-top:10px"></div>
+      <p class="note">塗りつぶし＝実測スカイラインの仰角。黄色の線＝現在の配置で許される仰角（<b id="skyDminTxt">50</b> m 以遠の地物に対する値、カメラ高さ基準）。赤い区間が抵触。「着」「離」は着陸側・離陸側の軸方位。</p>
+    </div>
+    <div class="card">
+      <h2>進入・離陸方位の自動提案</h2>
+      <div class="fld"><label class="f">近傍除外距離 m（これより近い地物は AR の 2 点計測で確認）</label><input type="number" id="skyDmin" step="10" min="10"></div>
+      <button class="btn pri" id="bSkyPropose">🔍 抵触が最小になる方位の組を探す</button>
+      <p class="note" style="margin-top:6px">進入方位 1° 刻み × 離陸方位のずれ 10° 刻み（なす角 90°〜180°）で、実測仰角が許容仰角を超える量の合計が最小の組を探します。同点なら直進を優先。</p>
+      <div id="skyProposals" style="margin-top:10px"></div>
+    </div>
+  </section>
+
+  <!-- ===== 机上チェック ===== -->
+  <section class="view" id="v-desk">
+    <div class="banner">机上チェックは公開データ（国土地理院 標高タイル・OpenStreetMap）による参考値です。データの鮮度・欠落（新築、樹木、仮設物、電線の高さ）があるため、現地確認の代わりにはなりません。</div>
+    <div class="card">
+      <h2>地図リンクから中心を設定</h2>
+      <div class="fld"><label class="f">Google マップ / Google Earth / Apple マップのリンク、または「緯度, 経度」</label>
+        <input type="text" id="deskLink" placeholder="https://www.google.com/maps/@35.68,139.76,18z … または 35.6812, 139.7671" autocapitalize="off" autocorrect="off"></div>
+      <button class="btn pri" id="bDeskLink">📍 座標を読み取って中心に設定</button>
+      <p class="note" id="deskLinkNote" style="margin-top:8px"></p>
+      <div class="grid2" style="margin-top:8px"><a class="btn" id="aGmap" target="_blank" rel="noopener">🗺 Google マップで開く</a><a class="btn" id="aEarth" target="_blank" rel="noopener">🌍 Google Earth で開く</a></div>
+    </div>
+    <div class="card">
+      <h2>地形チェック（国土地理院 標高）</h2>
+      <p class="note">着陸帯中心の地盤高を基準に、表面の範囲を 20 m 格子で標高を取得し、地盤が表面を超える地点を探します。着陸帯の勾配も算出します（5 m メッシュ → 10 m メッシュの順に取得）。</p>
+      <button class="btn pri" id="bDeskTerrain">⛰ 地形を取得してチェック</button>
+      <div id="deskTerrain" style="margin-top:10px"></div>
+    </div>
+    <div class="card">
+      <h2>建物・送電線（OpenStreetMap）</h2>
+      <div class="grid2">
+        <div class="fld"><label class="f">1 階あたりの高さ m</label><input type="number" id="floorH" step="0.1" min="2"></div>
+        <div class="fld"><label class="f">階数不明時の仮定階数</label><input type="number" id="floorDef" step="1" min="1"></div>
+      </div>
+      <p class="note">表面の範囲内の建物を取得し、高さタグがあればその値、無ければ階数 × 1 階の高さ、階数も無ければ仮定階数で推定して判定します（推定は「推定」と表示）。送電線・鉄塔・電柱は高さが分からないため、横切る区間の制限高を表示して要確認とします。判定した建物は障害物リストに追加されます。</p>
+      <button class="btn pri" id="bDeskOsm">🏢 建物・送電線を取得してチェック</button>
+      <div id="deskOsm" style="margin-top:10px"></div>
+      <button class="btn warn" id="bDeskOsmClear" style="margin-top:8px">OSM 由来の障害物を削除</button>
+    </div>
   </section>
 
   <!-- ===== 障害物 ===== -->
@@ -298,9 +366,10 @@
 
 <nav class="tabs">
   <button data-v="ar" class="on"><span class="i">📷</span>AR</button>
-  <button data-v="plan"><span class="i">🗺</span>平面図</button>
-  <button data-v="sec"><span class="i">📐</span>断面図</button>
+  <button data-v="draw"><span class="i">📐</span>図面</button>
+  <button data-v="route"><span class="i">🧭</span>経路</button>
   <button data-v="obs"><span class="i">⚠️</span>障害物</button>
+  <button data-v="desk"><span class="i">🖥</span>机上</button>
   <button data-v="set"><span class="i">⚙️</span>設定</button>
 </nav>
 <div class="toast" id="toast"></div>
@@ -317,14 +386,15 @@ const DEF = {
   ldSlope: 4, toSlope: 8, apLen: 500, apOuterW: 200,
   olsW: 10, olsSlope: 2, trSlope: 1, trTop: 45,
   vfov: 62, eyeH: 1.5, headFix: 0, posMode: 'gps', manBrg: 180, manDist: 40,
-  planNorthUp: true,
+  planNorthUp: true, planBase: 'none',
+  skyDmin: 50, floorH: 3, floorDef: 2,
 };
 let S = load();
 function load() {
   try {
     const j = JSON.parse(localStorage.getItem(KEY) || '{}');
-    return { cfg: Object.assign({}, DEF, j.cfg || {}), obstacles: j.obstacles || [] };
-  } catch (e) { return { cfg: Object.assign({}, DEF), obstacles: [] }; }
+    return { cfg: Object.assign({}, DEF, j.cfg || {}), obstacles: j.obstacles || [], skyline: j.skyline || null, desk: j.desk || {} };
+  } catch (e) { return { cfg: Object.assign({}, DEF), obstacles: [], skyline: null, desk: {} }; }
 }
 function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} }
 
@@ -553,7 +623,7 @@ function buildModel(cfg) {
     if (best) labels.push({ p: best, text: `転移表面 1/${cfg.trSlope}`, color: '#fff', big: true });
   }
 
-  for (const p of polys) p.plane = planeOf(p.pts);
+  for (const p of polys) { p.plane = planeOf(p.pts); p.bb = [Math.min(...p.pts.map(q => q[0])), Math.min(...p.pts.map(q => q[1])), Math.max(...p.pts.map(q => q[0])), Math.max(...p.pts.map(q => q[1]))]; }
   return { polys, lines, labels, dims: d, axes: { ld, to } };
 }
 // 多角形をわずかに内側へ縮める（境界上の点を「内側」と誤判定しないため）
@@ -589,6 +659,7 @@ function limitAt(model, x, y) {
   let best = Infinity, kind = null;
   for (const p of model.polys) {
     if (p.noLimit || !p.plane || Math.abs(p.plane.c) < 1e-6) continue;
+    if (p.bb && (x < p.bb[0] || x > p.bb[2] || y < p.bb[1] || y > p.bb[3])) continue;
     if (!pointIn2D(x, y, p.pts)) continue;
     const z = (p.plane.d - p.plane.a * x - p.plane.b * y) / p.plane.c;
     if (z < best) { best = z; kind = p.kind; }
@@ -681,8 +752,9 @@ function showView(v) {
   $('ar').classList.toggle('on', v === 'ar');
   $('main').style.display = v === 'ar' ? 'none' : '';
   arActive = v === 'ar';
-  if (v === 'plan') renderPlan();
-  if (v === 'sec') renderSections();
+  if (v === 'draw') { renderPlan(); renderSections(); }
+  if (v === 'route') renderRoute();
+  if (v === 'desk') renderDesk();
   if (v === 'obs') renderObs();
   if (v === 'set') fillSettings();
   if (arActive) { requestAnimationFrame(arLoop); if (streamStarted) resumeCam(); }
@@ -835,14 +907,14 @@ function drawAR() {
   }
   // 障害物
   for (const o of S.obstacles) {
-    const base = toCam([o.x, o.y, 0]), top = toCam([o.x, o.y, o.h]);
+    const base = toCam([o.x, o.y, 0]), top = toCam([o.x, o.y, o.h == null ? 2 : o.h]);
     if (-base[2] < NEAR && -top[2] < NEAR) continue;
     const seg = clipNear([base, top, top]); if (seg.length < 2) continue;
     const a = proj(seg[0]), b = proj(seg[1]);
     const col = o.judge === 'NG' ? '#ff6b6b' : o.judge === 'OK' ? '#22d3a6' : '#93a4c6';
     g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.strokeStyle = col; g.lineWidth = 3; g.stroke();
     g.beginPath(); g.arc(b[0], b[1], 5, 0, Math.PI * 2); g.fillStyle = col; g.fill();
-    label(g, b[0] + 8, b[1] - 4, `${o.name || '障害物'} ${fmt(o.h)}m ${o.judge}`, col);
+    label(g, b[0] + 8, b[1] - 4, `${o.name || '障害物'} ${o.h == null ? '高さ?' : fmt(o.h) + 'm'} ${o.judge}`, col);
   }
   // ラベル（重なるものは間引く）
   const placed = [];
@@ -858,6 +930,7 @@ function drawAR() {
   { const v = toCam([0, 0, 0]); if (-v[2] >= NEAR) { const s = proj(v); g.beginPath(); g.arc(s[0], s[1], 6, 0, Math.PI * 2); g.strokeStyle = '#fff'; g.lineWidth = 2; g.stroke(); } }
   // 北方向インジケータ（水平線上）
   drawHorizonTape(g, Wc, Hc, q, f);
+  if (sweep.on) sweepTick(g, q, f, cx, cy, Wc, Hc);
 
   // HUD
   const bp = bearingPitch(q);
@@ -921,7 +994,7 @@ $('bShot').onclick = async () => {
 // 障害物計測（AR）
 // ============================================================================
 const meas = { step: 0, base: null, top: null };
-$('bMeas').onclick = () => { $('fovBox').classList.remove('on'); if (meas.step) { meas.step = 0; sheet(false); $('bMeas').classList.remove('on'); } else { meas.step = 1; $('bMeas').classList.add('on'); showMeasSheet(); } };
+$('bMeas').onclick = () => { $('fovBox').classList.remove('on'); if (sweep.on) toggleSweep(false); if (meas.step) { meas.step = 0; sheet(false); $('bMeas').classList.remove('on'); } else { meas.step = 1; $('bMeas').classList.add('on'); showMeasSheet(); } };
 function sheet(on, html) { const s = $('sheet'); s.classList.toggle('on', !!on); if (html != null) s.innerHTML = html; }
 function showMeasSheet() {
   if (meas.step === 1) sheet(true, `<h3>① 障害物の根元に照準を合わせる</h3><div style="color:#9fb0cf">地面との接点（根元）に十字を合わせてから「記録」。見下ろす角度とカメラ高さ ${S.cfg.eyeH}m から距離を求めます。</div>
@@ -971,11 +1044,11 @@ function measRecord() {
 function judge(o) {
   const lim = limitAt(model, o.x, o.y);
   o.lim = lim.z; o.kind = lim.kind;
-  o.judge = lim.z === Infinity ? 'NA' : (o.h > lim.z ? 'NG' : 'OK');
+  o.judge = lim.z === Infinity ? 'NA' : (o.h == null ? 'NA' : (o.h > lim.z ? 'NG' : 'OK'));
   return o;
 }
 function judgeText(o) {
-  if (o.judge === 'NA') return '表面の範囲外';
+  if (o.judge === 'NA') return o.h == null && o.lim !== Infinity ? `高さ要確認（制限高 ${fmt(o.lim)}m）` : '表面の範囲外';
   if (o.judge === 'NG') return `NG 突出 ${fmt(o.h - o.lim)}m`;
   return `OK 余裕 ${fmt(o.lim - o.h)}m`;
 }
@@ -996,8 +1069,8 @@ function renderObs() {
   const l = $('obsList'); $('obsCount').textContent = S.obstacles.length ? `(${S.obstacles.length})` : '';
   if (!S.obstacles.length) { l.innerHTML = '<div class="empty">まだ障害物がありません</div>'; return; }
   l.innerHTML = S.obstacles.map((o, i) => `<div class="item"><div>
-      <div class="t">${esc(o.name || '障害物 ' + (i + 1))} <span class="tag ${o.judge === 'NG' ? 'ng' : o.judge === 'OK' ? 'ok' : 'na'}">${judgeText(o)}</span></div>
-      <div class="s">中心から ${fmt(o.dist)}m・方位 ${Math.round(o.bearing)}°（${dir8(o.bearing)}）／ 高さ ${fmt(o.h)}m ／ 制限高 ${o.lim === Infinity ? '—' : fmt(o.lim) + 'm（' + KIND[o.kind].name + '）'}</div></div>
+      <div class="t">${esc(o.name || '障害物 ' + (i + 1))} <span class="tag ${o.judge === 'NG' ? 'ng' : o.judge === 'OK' ? 'ok' : 'na'}">${judgeText(o)}</span>${o.src === 'osm' ? ' <span class="tag na">OSM' + (o.est ? '・推定' : '') + '</span>' : ''}</div>
+      <div class="s">中心から ${fmt(o.dist)}m・方位 ${Math.round(o.bearing)}°（${dir8(o.bearing)}）／ 高さ ${o.h == null ? '不明' : fmt(o.h) + 'm'}${o.note ? '（' + esc(o.note) + '）' : ''} ／ 制限高 ${o.lim === Infinity ? '—' : fmt(o.lim) + 'm（' + KIND[o.kind].name + '）'}</div></div>
       <button class="btn sm warn" data-del="${i}">削除</button></div>`).join('');
   l.querySelectorAll('[data-del]').forEach(b => b.onclick = () => { S.obstacles.splice(+b.dataset.del, 1); save(); renderObs(); });
 }
@@ -1007,6 +1080,28 @@ function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<':
 // 平面図
 // ============================================================================
 $('bPlanRot').onclick = () => { S.cfg.planNorthUp = !S.cfg.planNorthUp; save(); renderPlan(); };
+$('planBase').onchange = e => { S.cfg.planBase = e.target.value; save(); renderPlan(); };
+// 地理院タイルを平面図の背景に敷く（北が上の図面座標で配置し、進入方向を上にする場合は回転）
+function planTiles(o) {
+  const kind = S.cfg.planBase; const c = centerOrFallback();
+  if (!kind || kind === 'none' || !c) return '';
+  const R = Math.hypot(o.Wd, o.Hd) / 2 / o.s;                    // 中心から図の隅までの距離 [m]
+  const z = Math.max(13, Math.min(18, Math.round(Math.log2(156543 * Math.cos(c.lat * DEG) * o.s))));
+  const [la0, lo0] = latLonFromEnu(-R, -R, c.lat, c.lon), [la1, lo1] = latLonFromEnu(R, R, c.lat, c.lon);
+  const [tx0, ty1] = tileXY(la0, lo0, z), [tx1, ty0] = tileXY(la1, lo1, z);
+  const x0 = Math.floor(tx0), x1 = Math.floor(tx1), y0 = Math.floor(ty0), y1 = Math.floor(ty1);
+  if ((x1 - x0 + 1) * (y1 - y0 + 1) > 48) return '';
+  const url = (x, y) => kind === 'photo' ? `https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/${z}/${x}/${y}.jpg` : `https://cyberjapandata.gsi.go.jp/xyz/std/${z}/${x}/${y}.png`;
+  let g = `<g opacity=".85" ${o.northUp ? '' : `transform="rotate(${-o.H} ${o.X(0).toFixed(1)} ${o.Y(0).toFixed(1)})"`}>`;
+  for (let x = x0; x <= x1; x++) for (let y = y0; y <= y1; y++) {
+    const [laN, loW] = tileLatLon(x, y, z), [laS, loE] = tileLatLon(x + 1, y + 1, z);
+    const [eW, nS] = enuFromLatLon(laS, loW, c.lat, c.lon), [eE, nN] = enuFromLatLon(laN, loE, c.lat, c.lon);
+    g += `<image href="${url(x, y)}" x="${o.X(eW).toFixed(1)}" y="${o.Y(nN).toFixed(1)}" width="${((eE - eW) * o.s).toFixed(1)}" height="${((nN - nS) * o.s).toFixed(1)}" preserveAspectRatio="none"/>`;
+  }
+  return g + '</g>';
+}
+function tileXY(lat, lon, z) { const n = 2 ** z, lr = lat * DEG; return [(lon + 180) / 360 * n, (1 - Math.log(Math.tan(lr) + 1 / Math.cos(lr)) / Math.PI) / 2 * n]; }
+function tileLatLon(x, y, z) { const n = 2 ** z; return [Math.atan(Math.sinh(Math.PI * (1 - 2 * y / n))) / DEG, x / n * 360 - 180]; }
 function renderPlan() {
   const northUp = S.cfg.planNorthUp;
   $('bPlanRot').textContent = northUp ? '🧭 北を上' : '➡ 進入方向を上';
@@ -1024,6 +1119,7 @@ function renderPlan() {
   const X = u => ox + u * s, Y = v => oy - v * s;
   const P = p => { const [u, v] = map(p); return `${X(u).toFixed(1)},${Y(v).toFixed(1)}`; };
   let svg = `<svg class="fig" viewBox="0 0 ${Wd} ${Hd}" xmlns="http://www.w3.org/2000/svg">`;
+  svg += planTiles({ X, Y, s, Wd, Hd, ox, oy, northUp, H });
   // 帯 → 進入表面 → 着陸帯 の順で描画
   const order = ['tr', 'ols', 'apto', 'apld', 'pad', 'tlof'];
   for (const k of order) for (const p of model.polys) if (p.kind === k)
@@ -1039,8 +1135,12 @@ function renderPlan() {
   // 障害物
   for (const o of S.obstacles) {
     const [u, v] = map([o.x, o.y]); const col = o.judge === 'NG' ? '#ff6b6b' : o.judge === 'OK' ? '#22d3a6' : '#93a4c6';
-    svg += `<circle cx="${X(u)}" cy="${Y(v)}" r="4" fill="${col}" stroke="#000" stroke-width=".6"/><text x="${X(u) + 6}" y="${Y(v) - 4}" fill="${col}" font-size="9" font-weight="700">${esc(o.name || '')} ${fmt(o.h)}m</text>`;
+    svg += `<circle cx="${X(u)}" cy="${Y(v)}" r="4" fill="${col}" stroke="#000" stroke-width=".6"/><text x="${X(u) + 6}" y="${Y(v) - 4}" fill="${col}" font-size="9" font-weight="700">${esc(o.name || '')} ${o.h == null ? '?' : fmt(o.h) + 'm'}</text>`;
   }
+  // 机上チェック: 送電線・地形の注意点
+  const dk = S.desk || {};
+  if (dk.osm && dk.osm.lines) for (const ln of dk.osm.lines) svg += `<polyline points="${ln.pts.map(P).join(' ')}" fill="none" stroke="#ff6b6b" stroke-width="1.3" stroke-dasharray="5 3" stroke-opacity=".9"/>`;
+  if (dk.terrain && dk.terrain.flags) for (const t of dk.terrain.flags) { const [u, v] = map([t.x, t.y]); svg += `<rect x="${(X(u) - 2.5).toFixed(1)}" y="${(Y(v) - 2.5).toFixed(1)}" width="5" height="5" fill="${t.margin < 0 ? '#ff6b6b' : '#f5b544'}" opacity=".9"/>`; }
   // 自分
   if (me.ok || S.cfg.posMode === 'manual') { const [u, v] = map(me.xy); svg += `<circle cx="${X(u)}" cy="${Y(v)}" r="5" fill="#4f8cff" stroke="#fff" stroke-width="1.5"/>`; }
   // 中心
@@ -1053,7 +1153,10 @@ function renderPlan() {
   svg += `<line x1="${pad}" y1="${Hd - 14}" x2="${pad + bar * s}" y2="${Hd - 14}" stroke="#e8eefc" stroke-width="2"/><text x="${pad}" y="${Hd - 20}" fill="#93a4c6" font-size="10">${bar} m</text>`;
   svg += '</svg>';
   $('planSvg').innerHTML = svg;
-  $('legend').innerHTML = Object.entries(KIND).map(([k, v]) => `<span><i style="background:${v.color}"></i>${v.name}</span>`).join('');
+  $('legend').innerHTML = Object.entries(KIND).map(([k, v]) => `<span><i style="background:${v.color}"></i>${v.name}</span>`).join('') +
+    (dk.terrain ? '<span><i style="background:#ff6b6b"></i>地盤が表面を超過</span><span><i style="background:#f5b544"></i>地盤の余裕 10m 未満</span>' : '') + (dk.osm ? '<span><i style="background:none;border:1px dashed #ff6b6b"></i>送電線</span>' : '');
+  $('planBase').value = S.cfg.planBase || 'none';
+  $('planBaseNote').textContent = S.cfg.planBase && S.cfg.planBase !== 'none' ? '背景: 地理院タイル（国土地理院）。オンライン時のみ表示。' : '';
   const c = centerOrFallback();
   $('planKv').innerHTML = kv([
     ['中心', c ? `${c.lat.toFixed(6)}, ${c.lon.toFixed(6)}${c.fallback ? '（現在地・仮）' : ''}` : '未設定'],
@@ -1080,7 +1183,7 @@ function profileAlong(u, from, to, step) {
 function profileSvg(opts) {
   // opts: {u, from, to, obstacles:[{a, lat, inside, o}], title, ve:boolean, labels:[]}
   const prof = profileAlong(opts.u, opts.from, opts.to, Math.max(0.5, (opts.to - opts.from) / 400));
-  const zMax = Math.max(1, ...prof.filter(p => isFinite(p.z)).map(p => p.z), ...opts.obstacles.map(x => x.o.h), opts.zRef || 0) * 1.1;
+  const zMax = Math.max(1, ...prof.filter(p => isFinite(p.z)).map(p => p.z), ...opts.obstacles.map(x => x.o.h || 0), ...(opts.terrain || []).map(t => t.z), opts.zRef || 0) * 1.1;
   const Wd = 520, pad = { l: 14, r: 14, t: 18, b: 26 }, plotW = Wd - pad.l - pad.r;
   const sx = plotW / (opts.to - opts.from);
   const ve = opts.ve ? niceVE((plotW * 0.4) / (zMax * sx)) : Math.min(1, (Wd * 0.5) / (zMax * sx)) ;
@@ -1100,11 +1203,20 @@ function profileSvg(opts) {
     run.pts.push(p);
   }
   flush();
+  if (opts.terrain && opts.terrain.length > 1) {
+    const t = opts.terrain.filter(q => q.a >= opts.from && q.a <= opts.to && isFinite(q.z));
+    if (t.length > 1) svg += `<polygon points="${X(t[0].a)},${Z(0)} ${t.map(q => `${X(q.a)},${Z(q.z)}`).join(' ')} ${X(t[t.length - 1].a)},${Z(0)}" fill="#a16207" fill-opacity=".18"/><polyline points="${t.map(q => `${X(q.a)},${Z(q.z)}`).join(' ')}" fill="none" stroke="#d97706" stroke-width="1.5"/>` + txt(X(t[t.length - 1].a), Z(t[t.length - 1].z) - 4, '地盤（地理院標高）', '#d97706', 'end');
+  }
+  for (const r of opts.rays || []) {
+    const tan = Math.tan(r.el * DEG), e = r.eyeH;
+    let aEnd = opts.to; if (tan > 0) aEnd = Math.min(opts.to, (zMax - e) / tan); const zEnd = Math.max(0, e + aEnd * tan);
+    svg += `<line x1="${X(0)}" y1="${Z(e)}" x2="${X(aEnd)}" y2="${Z(zEnd)}" stroke="#e8eefc" stroke-dasharray="5 4" stroke-opacity=".9"/>` + txt(X(aEnd) - 3, Z(zEnd) - 4, `実測スカイライン ${r.el.toFixed(1)}°${r.flag === 'above' ? '以上' : ''}`, '#e8eefc', 'end');
+  }
   if (opts.zRef) { svg += `<line x1="${pad.l}" y1="${Z(opts.zRef)}" x2="${Wd - pad.r}" y2="${Z(opts.zRef)}" stroke="${KIND.tr.color}" stroke-dasharray="4 4" stroke-opacity=".8"/>` + txt(Wd - pad.r - 2, Z(opts.zRef) - 3, `転移表面上端 ${opts.zRef}m`, KIND.tr.color, 'end'); }
   for (const lb of opts.labels || []) svg += txt(X(lb.a), lb.z == null ? Hd - 8 : Z(lb.z) - 4, lb.text, lb.color || '#93a4c6', lb.anchor || 'middle');
   svg += txt(pad.l + 2, pad.t - 4, opts.ve ? `縦倍率 ×${ve}` : '縦横同倍率', '#64769b', 'start');
   for (const x of opts.obstacles) {
-    if (x.a < opts.from || x.a > opts.to) continue;
+    if (x.a < opts.from || x.a > opts.to || x.o.h == null) continue;
     const col = obstacleColor(x.o);
     svg += `<line x1="${X(x.a)}" y1="${Z(0)}" x2="${X(x.a)}" y2="${Z(x.o.h)}" stroke="${col}" stroke-width="3" stroke-opacity="${x.inside ? 1 : .35}"/>` + txt(X(x.a), Z(x.o.h) - 4, `${esc(x.o.name || '')} ${fmt(x.o.h)}m`, col, 'middle', x.inside ? 1 : .5);
   }
@@ -1126,7 +1238,10 @@ function renderSections() {
       { a: end, text: `${KIND[kind].name} 1/${n}  末端 h=${fmt(tr.Za)}m`, anchor: 'end', color: KIND[kind].color, z: tr.Za },
       { a: tr.s + d.La / 2, text: `${title} →`, anchor: 'middle' },
     ];
-    return profileSvg({ u, from: -Math.max(d.L, d.W) / 2 - 5, to: end + 10, obstacles: obs, ve: true, zRef: d.top, labels });
+    const bAx = (S.cfg.heading + Math.atan2(u[1], u[0]) / DEG + 360) % 360;
+    const sk = skyAt(bAx, 3), rays = sk ? [{ el: sk.el, eyeH: +S.cfg.eyeH || 1.5, flag: sk.flag }] : [];
+    const terr = S.desk && S.desk.terrain && S.desk.terrain.profiles ? S.desk.terrain.profiles[kind === 'apld' ? 'ld' : 'to'] : null;
+    return profileSvg({ u, from: -Math.max(d.L, d.W) / 2 - 5, to: end + 10, obstacles: obs, ve: true, zRef: d.top, labels, rays, terrain: terr });
   };
   $('secLong').innerHTML = `<p class="note" style="margin:0 0 6px"><b>着陸側</b>（方位 ${Math.round((S.cfg.heading + 180) % 360)}° 側から進入）</p>` +
     longSvg(ax.ld, 'apld', S.cfg.ldSlope, `着陸側 ${d.La}m`) +
@@ -1215,7 +1330,7 @@ $('bExport').onclick = () => {
 $('bImport').onclick = () => $('fileImp').click();
 $('fileImp').onchange = async e => {
   const f = e.target.files[0]; if (!f) return;
-  try { const j = JSON.parse(await f.text()); S = { cfg: Object.assign({}, DEF, j.cfg || {}), obstacles: j.obstacles || [] }; model = buildModel(S.cfg); rejudgeAll(); save(); fillSettings(); toast('インポートしました'); }
+  try { const j = JSON.parse(await f.text()); S = { cfg: Object.assign({}, DEF, j.cfg || {}), obstacles: j.obstacles || [], skyline: j.skyline || null, desk: j.desk || {} }; model = buildModel(S.cfg); rejudgeAll(); save(); fillSettings(); toast('インポートしました'); }
   catch (err) { toast('読み込めませんでした'); }
   e.target.value = '';
 };
@@ -1229,6 +1344,421 @@ $('bCopyPlan').onclick = async () => {
     `障害物 ${S.obstacles.length} 件:`, ...S.obstacles.map((o, i) => `  ${i + 1}. ${o.name || '障害物'}: 方位 ${Math.round(o.bearing)}° 距離 ${fmt(o.dist)} m 高さ ${fmt(o.h)} m → ${judgeText(o)}`)].join('\n');
   try { await navigator.clipboard.writeText(t); toast('コピーしました'); } catch (e) { prompt('コピーしてください', t); }
 };
+
+
+// ============================================================================
+// 机上チェック: 地図リンク → 座標
+// ============================================================================
+// GEOLINK BEGIN
+function parseMapLink(t) {
+  t = (t || '').trim(); let m;
+  const dms = t.match(/(\d{1,3})[°˚]\s*(\d{1,2})['′]\s*([\d.]+)["″]?\s*([NS])[,\s]+(\d{1,3})[°˚]\s*(\d{1,2})['′]\s*([\d.]+)["″]?\s*([EW])/i);
+  if (dms) { const la = (+dms[1] + dms[2] / 60 + dms[3] / 3600) * (dms[4].toUpperCase() === 'S' ? -1 : 1), lo = (+dms[5] + dms[6] / 60 + dms[7] / 3600) * (dms[8].toUpperCase() === 'W' ? -1 : 1); return [la, lo]; }
+  const ok = (la, lo) => Math.abs(la) <= 90 && Math.abs(lo) <= 180 ? [la, lo] : null;
+  if ((m = t.match(/!3d(-?\d{1,3}\.\d+)!4d(-?\d{1,3}\.\d+)/))) return ok(+m[1], +m[2]);                    // Google マップ 場所ピン（@ より優先）
+  if ((m = t.match(/@(-?\d{1,3}\.\d+),(-?\d{1,3}\.\d+)/))) return ok(+m[1], +m[2]);                       // Google マップ / Earth の @lat,lon
+  if ((m = t.match(/[?&](?:q|ll|query|center|destination|daddr|saddr|sll)=(?:loc:)?(-?\d{1,3}\.\d+)(?:,|%2C)\s*(-?\d{1,3}\.\d+)/i))) return ok(+m[1], +m[2]);
+  if ((m = t.match(/geo:(-?\d{1,3}\.\d+),(-?\d{1,3}\.\d+)/i))) return ok(+m[1], +m[2]);
+  if ((m = t.match(/^(-?\d{1,2}\.\d+)[,\s、]+(-?\d{1,3}\.\d+)$/))) return ok(+m[1], +m[2]);                 // 「緯度, 経度」
+  return null;
+}
+function isShortLink(t) { return /goo\.gl|maps\.app|earth\.app|apple\.co\/|shorturl/i.test(t || ''); }
+// GEOLINK END
+
+$('bDeskLink').onclick = () => {
+  const t = $('deskLink').value, ll = parseMapLink(t);
+  if (!ll) { $('deskLinkNote').innerHTML = isShortLink(t) ? '<span style="color:var(--warn)">短縮リンクには座標が含まれません。Safari で開いてから、アドレスバーの URL（@緯度,経度 を含むもの）をコピーして貼り付けてください。</span>' : '<span style="color:var(--warn)">座標を読み取れませんでした。Google マップの URL（@35.68,139.76 を含む）か「緯度, 経度」を貼り付けてください。</span>'; return; }
+  S.cfg.center = { lat: ll[0], lon: ll[1] }; $('cLat').value = ll[0]; $('cLon').value = ll[1]; save(); updateCenterNote(); renderDesk(); toast('中心を設定しました');
+};
+function renderDesk() {
+  const c = centerOrFallback();
+  $('floorH').value = S.cfg.floorH; $('floorDef').value = S.cfg.floorDef;
+  $('deskLinkNote').innerHTML = c ? `中心: <b>${c.lat.toFixed(6)}, ${c.lon.toFixed(6)}</b>${c.fallback ? '（現在地・仮）' : ''}　進入方位 ${S.cfg.heading}° / 離陸方位 ${Math.round(takeoffHeading())}°` : '中心が未設定です。リンクを貼るか、設定で現在地を中心にしてください。';
+  $('aGmap').href = c ? `https://www.google.com/maps/search/?api=1&query=${c.lat.toFixed(6)},${c.lon.toFixed(6)}` : '#';
+  $('aEarth').href = c ? `https://earth.google.com/web/@${c.lat.toFixed(6)},${c.lon.toFixed(6)},0a,900d,35y,0h,0t,0r` : '#';
+  renderDeskTerrain(); renderDeskOsm();
+}
+$('floorH').onchange = e => { S.cfg.floorH = +e.target.value || 3; save(); };
+$('floorDef').onchange = e => { S.cfg.floorDef = Math.max(1, +e.target.value || 2); save(); };
+
+// ============================================================================
+// 机上チェック: 国土地理院 標高タイル
+// ============================================================================
+// DEM BEGIN
+const demCache = new Map();
+const DEM_SRC = [['dem5a', 15], ['dem5b', 15], ['dem5c', 15], ['dem', 14]];
+function demDecode(r, g, b) { if (r === 128 && g === 0 && b === 0) return NaN; const x = r * 65536 + g * 256 + b; return (x < 8388608 ? x : x - 16777216) * 0.01; }
+// DEM END
+function loadTileData(url) {
+  if (demCache.has(url)) return demCache.get(url);
+  const p = new Promise(res => {
+    const im = new Image(); im.crossOrigin = 'anonymous';
+    im.onload = () => { try { const c = document.createElement('canvas'); c.width = c.height = 256; const g = c.getContext('2d', { willReadFrequently: true }); g.drawImage(im, 0, 0); res(g.getImageData(0, 0, 256, 256)); } catch (e) { res(null); } };
+    im.onerror = () => res(null); im.src = url;
+  });
+  demCache.set(url, p); return p;
+}
+async function elevAt(lat, lon) {
+  for (const [src, z] of DEM_SRC) {
+    const [tx, ty] = tileXY(lat, lon, z), ix = Math.floor(tx), iy = Math.floor(ty);
+    const d = await loadTileData(`https://cyberjapandata.gsi.go.jp/xyz/${src}_png/${z}/${ix}/${iy}.png`); if (!d) continue;
+    const px = Math.min(255, Math.floor((tx - ix) * 256)), py = Math.min(255, Math.floor((ty - iy) * 256)), i = (py * 256 + px) * 4;
+    const h = demDecode(d.data[i], d.data[i + 1], d.data[i + 2]); if (!isNaN(h)) return { h, src };
+  }
+  return { h: NaN, src: null };
+}
+const DEM_NAME = { dem5a: '5m メッシュ（レーザ）', dem5b: '5m メッシュ（写真測量）', dem5c: '5m メッシュ（写真測量・旧）', dem: '10m メッシュ' };
+
+$('bDeskTerrain').onclick = () => runTerrain().catch(e => { $('deskTerrain').innerHTML = `<div class="note" style="color:var(--warn)">取得に失敗しました: ${esc(e.message || e)}</div>`; });
+async function runTerrain() {
+  const c = centerOrFallback(); if (!c) { toast('中心が未設定です'); return; }
+  const out = $('deskTerrain'); out.innerHTML = '<div class="note">標高タイルを取得中…</div>';
+  const at = async (x, y) => { const [e, n] = localToEnu(x, y, S.cfg.heading); const [la, lo] = latLonFromEnu(e, n, c.lat, c.lon); return elevAt(la, lo); };
+  const base = await at(0, 0);
+  if (isNaN(base.h)) { out.innerHTML = '<div class="note" style="color:var(--warn)">この地点の標高データを取得できませんでした（国外、またはオフライン）。</div>'; return; }
+  const d = model.dims;
+  const [eF, eB, eR, eL] = await Promise.all([at(d.L / 2, 0), at(-d.L / 2, 0), at(0, d.W / 2), at(0, -d.W / 2)]);
+  const slopeL = (eF.h - eB.h) / d.L * 100, slopeW = (eR.h - eL.h) / d.W * 100;
+  // 表面の範囲を格子でサンプリング
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  for (const p of model.polys) for (const q of p.pts) { minX = Math.min(minX, q[0]); maxX = Math.max(maxX, q[0]); minY = Math.min(minY, q[1]); maxY = Math.max(maxY, q[1]); }
+  const step = 20, pts = [];
+  for (let x = Math.floor(minX / step) * step; x <= maxX; x += step) for (let y = Math.floor(minY / step) * step; y <= maxY; y += step) {
+    const lim = limitAt(model, x, y); if (isFinite(lim.z)) pts.push({ x, y, lim: lim.z, kind: lim.kind });
+  }
+  const flags = []; let n = 0, worst = {}, srcs = {}, k = 0;
+  for (const pt of pts) {
+    const e = await at(pt.x, pt.y); k++;
+    if (k % 100 === 0) out.innerHTML = `<div class="note">標高を取得中… ${k}/${pts.length}</div>`;
+    if (isNaN(e.h)) continue;
+    n++; srcs[e.src] = (srcs[e.src] || 0) + 1;
+    const rel = e.h - base.h, margin = pt.lim - rel;
+    if (!worst[pt.kind] || margin < worst[pt.kind].margin) worst[pt.kind] = { x: pt.x, y: pt.y, rel, lim: pt.lim, margin };
+    if (margin < 10) flags.push({ x: pt.x, y: pt.y, rel, lim: pt.lim, kind: pt.kind, margin });
+  }
+  flags.sort((a, b) => a.margin - b.margin);
+  // 軸方向の地盤プロファイル（断面図用）
+  const profiles = {};
+  for (const [key, tr] of [['ld', model.axes.ld], ['to', model.axes.to]]) {
+    const arr = []; const end = tr.s + d.La + 10;
+    for (let a = -Math.max(d.L, d.W) / 2; a <= end; a += 10) { const e = await at(a * tr.u[0], a * tr.u[1]); arr.push({ a, z: isNaN(e.h) ? NaN : e.h - base.h }); }
+    profiles[key] = arr;
+  }
+  S.desk.terrain = { ts: Date.now(), center: c, base: base.h, src: base.src, srcs, slopeL, slopeW, n, total: pts.length, flags: flags.slice(0, 300), worst, profiles };
+  save(); renderDeskTerrain(); toast('地形チェック完了');
+}
+function renderDeskTerrain() {
+  const t = S.desk && S.desk.terrain, out = $('deskTerrain'); if (!t) { out.innerHTML = ''; return; }
+  const ng = t.flags.filter(f => f.margin < 0), warn = t.flags.filter(f => f.margin >= 0);
+  const row = f => { const brg = bearingOf(...localToEnu(f.x, f.y, S.cfg.heading)), dist = Math.hypot(f.x, f.y);
+    return `<div class="item"><div><div class="t"><span class="tag ${f.margin < 0 ? 'ng' : 'na'}">${f.margin < 0 ? '超過 ' + fmt(-f.margin) + 'm' : '余裕 ' + fmt(f.margin) + 'm'}</span> ${KIND[f.kind].name}</div><div class="s">方位 ${Math.round(brg)}°（${dir8(brg)}）・${fmt(dist)}m ／ 地盤 ${f.rel >= 0 ? '+' : ''}${fmt(f.rel)}m（中心比） ／ 制限高 ${fmt(f.lim)}m</div></div></div>`; };
+  const slopeFlag = v => Math.abs(v) > 5 ? ' <span class="tag ng">5% 超</span>' : ' <span class="tag ok">OK</span>';
+  out.innerHTML = `<div class="grid2">
+      <div class="stat"><div class="k">中心の標高</div><div class="v">${fmt(t.base)}<small> m</small></div></div>
+      <div class="stat"><div class="k">地盤が表面を超える地点</div><div class="v ${ng.length ? 'up' : ''}">${ng.length}<small> / ${t.n} 点</small></div></div>
+      <div class="stat"><div class="k">着陸帯 縦断勾配</div><div class="v">${t.slopeL.toFixed(1)}<small>%</small>${slopeFlag(t.slopeL)}</div></div>
+      <div class="stat"><div class="k">着陸帯 横断勾配</div><div class="v">${t.slopeW.toFixed(1)}<small>%</small>${slopeFlag(t.slopeW)}</div></div>
+    </div>
+    <p class="note" style="margin-top:8px">データ: ${Object.entries(t.srcs).map(([k, v]) => `${DEM_NAME[k] || k} ${v} 点`).join('、')}。${new Date(t.ts).toLocaleString('ja-JP')} 取得。地盤は中心標高との差で評価（着陸帯の勾配は一般に 5% 以下が目安）。</p>
+    ${ng.length ? `<div class="list" style="margin-top:8px"><div class="note" style="margin-bottom:4px"><b>超過地点（上位 ${Math.min(10, ng.length)} 件）</b></div>${ng.slice(0, 10).map(row).join('')}</div>` : '<p class="note" style="color:var(--acc2)">表面を超える地盤はありません。</p>'}
+    ${warn.length ? `<div class="list" style="margin-top:8px"><div class="note" style="margin-bottom:4px"><b>余裕 10 m 未満（上位 ${Math.min(5, warn.length)} 件 / ${warn.length} 件）</b></div>${warn.slice(0, 5).map(row).join('')}</div>` : ''}
+    <button class="btn" style="margin-top:8px" onclick="showView('draw')">図面で確認</button>`;
+}
+
+// ============================================================================
+// 机上チェック: OpenStreetMap（Overpass）
+// ============================================================================
+$('bDeskOsm').onclick = () => runOsm().catch(e => { $('deskOsm').innerHTML = `<div class="note" style="color:var(--warn)">取得に失敗しました: ${esc(e.message || e)}（Overpass API が混雑している場合は時間をおいて再試行してください）</div>`; });
+$('bDeskOsmClear').onclick = () => { const n = S.obstacles.length; S.obstacles = S.obstacles.filter(o => o.src !== 'osm'); if (S.desk) S.desk.osm = null; save(); renderDeskOsm(); toast(`${n - S.obstacles.length} 件削除しました`); };
+function osmHeight(tags) {
+  const num = v => { const m = String(v || '').match(/-?\d+(\.\d+)?/); return m ? +m[0] : null; };
+  const h = num(tags.height) ?? num(tags['building:height']);
+  if (h != null) return { h, est: false, note: `高さタグ ${h}m` };
+  const lv = num(tags['building:levels']);
+  if (lv != null) { const rl = num(tags['roof:levels']) || 0; return { h: (lv + rl) * S.cfg.floorH, est: true, note: `${lv}階×${S.cfg.floorH}m` }; }
+  return { h: S.cfg.floorDef * S.cfg.floorH, est: true, note: `階数不明→${S.cfg.floorDef}階仮定` };
+}
+async function runOsm() {
+  const c = centerOrFallback(); if (!c) { toast('中心が未設定です'); return; }
+  const out = $('deskOsm'); out.innerHTML = '<div class="note">OpenStreetMap から取得中…（数十秒かかることがあります）</div>';
+  const toLL = (x, y) => { const [e, n] = localToEnu(x, y, S.cfg.heading); return latLonFromEnu(e, n, c.lat, c.lon); };
+  // 表面の外周（転移表面上端）を検索ポリゴンに
+  const outer = model.lines.find(l => l.loop && l.bold);
+  const poly = outer.pts.filter((_, i) => i % 2 === 0).map(p => toLL(p[0], p[1]).map(v => v.toFixed(6)).join(' ')).join(' ');
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  for (const p of model.polys) for (const q of p.pts) { minX = Math.min(minX, q[0]); maxX = Math.max(maxX, q[0]); minY = Math.min(minY, q[1]); maxY = Math.max(maxY, q[1]); }
+  const lls = [toLL(minX, minY), toLL(minX, maxY), toLL(maxX, minY), toLL(maxX, maxY)];
+  const bbox = [Math.min(...lls.map(l => l[0])), Math.min(...lls.map(l => l[1])), Math.max(...lls.map(l => l[0])), Math.max(...lls.map(l => l[1]))].map(v => v.toFixed(6)).join(',');
+  const q = `[out:json][timeout:60];(way["building"](poly:"${poly}");relation["building"](poly:"${poly}");way["man_made"~"^(tower|mast|chimney|silo|storage_tank|windmill)$"](poly:"${poly}");node["man_made"~"^(tower|mast|chimney|communications_tower|flagpole|crane|windmill)$"](poly:"${poly}");way["power"~"^(line|minor_line)$"](${bbox});node["power"~"^(tower|pole|portal)$"](poly:"${poly}"););out tags geom;`;
+  const res = await fetch('https://overpass-api.de/api/interpreter', { method: 'POST', body: 'data=' + encodeURIComponent(q), headers: { 'Content-Type': 'application/x-www-form-urlencoded' } });
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  const j = await res.json();
+  const toLocal = g => { const [e, n] = enuFromLatLon(g.lat, g.lon, c.lat, c.lon); const xy = enuToLocal(e, n, S.cfg.heading); return { x: xy[0], y: xy[1], e, n }; };
+  S.obstacles = S.obstacles.filter(o => o.src !== 'osm');
+  const added = [], lines = []; let nB = 0, nIn = 0, nLine = 0, nTower = 0;
+  const addObs = (pt, h, name, est, note, id) => {
+    const lim = limitAt(model, pt.x, pt.y); if (!isFinite(lim.z)) return null;
+    const o = judge({ x: pt.x, y: pt.y, e: pt.e, n: pt.n, h, name, src: 'osm', osmId: id, est, note, dist: Math.hypot(pt.e, pt.n), bearing: bearingOf(pt.e, pt.n), ts: Date.now() });
+    S.obstacles.push(o); added.push(o); return o;
+  };
+  const polyPoints = geom => { // 外周の頂点・辺の中点・重心
+    const pts = geom.map(toLocal), out = pts.slice();
+    for (let i = 0; i < pts.length; i++) { const a = pts[i], b = pts[(i + 1) % pts.length]; out.push({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, e: (a.e + b.e) / 2, n: (a.n + b.n) / 2 }); }
+    const cx = pts.reduce((s, p) => s + p.x, 0) / pts.length, cy = pts.reduce((s, p) => s + p.y, 0) / pts.length, ce = pts.reduce((s, p) => s + p.e, 0) / pts.length, cn = pts.reduce((s, p) => s + p.n, 0) / pts.length;
+    out.push({ x: cx, y: cy, e: ce, n: cn }); return out;
+  };
+  const judgePoly = (geom, tags, id, kindName) => {
+    nB++;
+    let best = null;
+    for (const pt of polyPoints(geom)) { const lim = limitAt(model, pt.x, pt.y); if (isFinite(lim.z) && (!best || lim.z < best.lim)) best = { pt, lim: lim.z }; }
+    if (!best) return; nIn++;
+    const hh = osmHeight(tags);
+    addObs(best.pt, hh.h, tags.name || kindName, hh.est, hh.note, id);
+  };
+  for (const el of j.elements || []) {
+    const tags = el.tags || {};
+    if (el.type === 'way' && tags.building && el.geometry && el.geometry.length >= 3) judgePoly(el.geometry, tags, el.id, '建物');
+    else if (el.type === 'relation' && tags.building && el.members) { for (const m of el.members) if (m.role === 'outer' && m.geometry && m.geometry.length >= 3) judgePoly(m.geometry, tags, el.id, '建物'); }
+    else if (el.type === 'way' && tags.man_made && el.geometry) judgePoly(el.geometry, tags, el.id, tags.man_made);
+    else if (el.type === 'node' && tags.man_made) { nTower++; const pt = toLocal(el); const hh = tags.height ? osmHeight(tags) : null; addObs(pt, hh ? hh.h : null, tags.name || ({ tower: '塔', mast: 'マスト', chimney: '煙突', communications_tower: '通信塔', flagpole: 'ポール', crane: 'クレーン', windmill: '風車' }[tags.man_made] || tags.man_made) + '(OSM)', !!(hh && hh.est), hh ? hh.note : '高さ不明', el.id); }
+    else if (el.type === 'node' && tags.power) { nTower++; const pt = toLocal(el); const hh = tags.height ? osmHeight(tags) : null; addObs(pt, hh ? hh.h : null, (tags.power === 'tower' ? '鉄塔' : tags.power === 'pole' ? '電柱' : '門型鉄構') + '(OSM)', !!(hh && hh.est), hh ? hh.note : '高さ不明', el.id); }
+    else if (el.type === 'way' && tags.power && el.geometry) {
+      nLine++;
+      const pts = el.geometry.map(toLocal); let minLim = Infinity, minPt = null; const seg = [];
+      for (let i = 0; i < pts.length - 1; i++) {
+        const a = pts[i], b = pts[i + 1], len = Math.hypot(b.x - a.x, b.y - a.y), nn = Math.max(1, Math.ceil(len / 10));
+        for (let k = 0; k <= nn; k++) { const t = k / nn, pt = { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t, e: a.e + (b.e - a.e) * t, n: a.n + (b.n - a.n) * t }; const lim = limitAt(model, pt.x, pt.y); if (isFinite(lim.z)) { seg.push([pt.x, pt.y]); if (lim.z < minLim) { minLim = lim.z; minPt = pt; } } }
+      }
+      if (minPt) { const name = (tags.name || (tags.power === 'line' ? '送電線' : '配電線')) + (tags.voltage ? ` ${tags.voltage}V` : ''); lines.push({ name, pts: seg, minLim, osmId: el.id }); addObs(minPt, tags.height ? osmHeight(tags).h : null, name + '（横断区間の最低制限高）', false, tags.height ? '高さタグ' : '高さ不明', el.id); }
+    }
+  }
+  const ng = added.filter(o => o.judge === 'NG').length;
+  S.desk.osm = { ts: Date.now(), center: c, nB, nIn, nLine, nTower, lines, added: added.length, ng, unknown: added.filter(o => o.h == null).length };
+  save(); renderDeskOsm(); renderObs(); toast(`建物 ${nIn} 件を判定（NG ${ng}）`);
+}
+function renderDeskOsm() {
+  const o = S.desk && S.desk.osm, out = $('deskOsm'); if (!o) { out.innerHTML = ''; return; }
+  const items = S.obstacles.filter(x => x.src === 'osm');
+  const ngs = items.filter(x => x.judge === 'NG'), unk = items.filter(x => x.h == null);
+  out.innerHTML = `<div class="grid2">
+      <div class="stat"><div class="k">表面内の建物</div><div class="v">${o.nIn}<small> / 取得 ${o.nB}</small></div></div>
+      <div class="stat"><div class="k">NG（突出）</div><div class="v ${ngs.length ? 'up' : ''}">${ngs.length}</div></div>
+      <div class="stat"><div class="k">送電線・配電線</div><div class="v">${o.lines.length}<small> 本が横断</small></div></div>
+      <div class="stat"><div class="k">高さ要確認</div><div class="v">${unk.length}</div></div>
+    </div>
+    <p class="note" style="margin-top:8px">${new Date(o.ts).toLocaleString('ja-JP')} 取得（© OpenStreetMap contributors）。建物の高さは推定を含みます。</p>
+    ${ngs.length ? `<div class="list" style="margin-top:8px"><div class="note" style="margin-bottom:4px"><b>突出する建物</b></div>${ngs.slice(0, 10).map(x => `<div class="item"><div><div class="t">${esc(x.name)} <span class="tag ng">${judgeText(x)}</span></div><div class="s">方位 ${Math.round(x.bearing)}°・${fmt(x.dist)}m ／ 高さ ${fmt(x.h)}m（${esc(x.note)}）／ 制限高 ${fmt(x.lim)}m</div></div></div>`).join('')}</div>` : '<p class="note" style="color:var(--acc2)">突出する建物はありません（推定高さによる）。</p>'}
+    ${o.lines.length ? `<div class="list" style="margin-top:8px"><div class="note" style="margin-bottom:4px"><b>横断する送電線・配電線</b></div>${o.lines.map(l => `<div class="item"><div><div class="t">${esc(l.name)}</div><div class="s">横断区間の制限高 最低 <b>${fmt(l.minLim)}m</b> → 電線の地上高がこれ未満か現地確認</div></div></div>`).join('')}</div>` : ''}
+    <button class="btn" style="margin-top:8px" onclick="showView('obs')">障害物リストを見る</button>`;
+}
+
+// ============================================================================
+// スカイライン計測（AR スイープ）
+// ============================================================================
+const sweep = { on: false, mode: 'auto', last: 0, work: null, lastPts: [], n: 0 };
+function skyBins() { if (!S.skyline || !S.skyline.bins) S.skyline = { bins: new Array(360).fill(null), ts: Date.now() }; return S.skyline.bins; }
+function skyCoverage() { return S.skyline && S.skyline.bins ? S.skyline.bins.filter(Boolean).length : 0; }
+// 方位 b ± w° の実測仰角の最大
+function skyAt(b, w) {
+  if (!S.skyline || !S.skyline.bins) return null; let best = null;
+  for (let k = -w; k <= w; k++) { const s = S.skyline.bins[((Math.round(b) + k) % 360 + 360) % 360]; if (s && (!best || s.el > best.el)) best = s; }
+  return best;
+}
+$('bSky').onclick = () => toggleSweep();
+$('bSkyStart').onclick = () => { showView('ar'); if ($('start').style.display !== 'none') toast('「カメラとセンサーを開始」のあと 🌅 を押してください'); else toggleSweep(true); };
+$('bSkyClear').onclick = () => { if (!confirm('スカイライン計測をクリアしますか？')) return; S.skyline = null; save(); renderRoute(); };
+function toggleSweep(force) {
+  sweep.on = force == null ? !sweep.on : force;
+  $('bSky').classList.toggle('on', sweep.on);
+  if (sweep.on) { meas.step = 0; $('bMeas').classList.remove('on'); $('fovBox').classList.remove('on'); showSweepSheet(); }
+  else { sheet(false); save(); }
+}
+function showSweepSheet() {
+  sheet(true, `<h3>🌅 スカイライン計測 <span id="swCov" style="font-weight:400;color:#9fb0cf">${skyCoverage()}/360°</span></h3>
+    <div style="color:#9fb0cf">着陸帯の中心で iPhone を立て、水平線を画面の中ほどに入れて、ゆっくり 1 周してください。${sweep.mode === 'auto' ? '空との境界を自動検出します（水色の点）。白い建物や逆光で誤る場合は手動に切替。' : '照準（十字）を地物の頂部に沿わせながら回してください。'}</div>
+    <div class="row" style="margin-top:8px"><button class="btn ${sweep.mode === 'auto' ? 'pri' : ''}" id="swAuto">自動検出</button><button class="btn ${sweep.mode === 'manual' ? 'pri' : ''}" id="swMan">手動（照準）</button></div>
+    <div class="row"><button class="btn pri" id="swDone">保存して終了</button><button class="btn" id="swClear">クリア</button></div>`);
+  $('swAuto').onclick = () => { sweep.mode = 'auto'; showSweepSheet(); };
+  $('swMan').onclick = () => { sweep.mode = 'manual'; showSweepSheet(); };
+  $('swDone').onclick = () => { toggleSweep(false); toast(`${skyCoverage()}/360° を保存しました`); };
+  $('swClear').onclick = () => { S.skyline = null; save(); showSweepSheet(); };
+}
+function sweepTick(g, q, f, cx, cy, W, H) {
+  const now = Date.now();
+  if (now - sweep.last > 120) {
+    sweep.last = now;
+    if (sweep.mode === 'manual') { const bp = bearingPitch(q); skyRecord(bp.bearing, bp.pitch, 'manual'); sweep.lastPts = [[cx, cy]]; }
+    else sweepAuto(q, f, cx, cy, W, H);
+    if (++sweep.n % 6 === 0) { const el = $('swCov'); if (el) el.textContent = `${skyCoverage()}/360°`; }
+  }
+  g.fillStyle = '#22d3ee'; for (const [x, y] of sweep.lastPts) { g.beginPath(); g.arc(x, y, 3, 0, Math.PI * 2); g.fill(); }
+  drawSkyProfileAR(g, q, f, cx, cy, W, H);
+}
+// SKY BEGIN
+function isSky(d, i) {
+  const R = d[i], G = d[i + 1], B = d[i + 2], mx = Math.max(R, G, B), mn = Math.min(R, G, B), br = (R + G + B) / 3;
+  return (B > 90 && B >= R + 15 && B >= G) || (br > 165 && mx - mn < 45) || br > 235;
+}
+// 列ごとに上から走査し、3 行連続で空でない最初の行をスカイラインとする
+function skylineRows(data, cols, rows) {
+  const out = new Array(cols);
+  for (let c = 0; c < cols; c++) {
+    let row = -1;
+    for (let r = 0; r <= rows - 3; r++) { if (!isSky(data, (r * cols + c) * 4) && !isSky(data, ((r + 1) * cols + c) * 4) && !isSky(data, ((r + 2) * cols + c) * 4)) { row = r; break; } }
+    out[c] = row;
+  }
+  return out;
+}
+function skyRecordInto(bins, brg, el, src, flag) {
+  const b = ((Math.round(brg) % 360) + 360) % 360, cur = bins[b];
+  if (src === 'manual') { bins[b] = { el: cur && cur.src === 'manual' ? Math.max(cur.el, el) : el, src, n: (cur && cur.n || 0) + 1 }; return; }
+  if (cur && cur.src === 'manual') return;
+  const s = cur && cur.s ? cur.s.slice() : []; s.push(el); if (s.length > 9) s.shift();
+  const sorted = s.slice().sort((a, c) => a - c);
+  bins[b] = { el: sorted[Math.floor(sorted.length / 2)], src: 'auto', n: (cur && cur.n || 0) + 1, s, flag: flag || null };
+}
+// SKY END
+function skyRecord(brg, el, src, flag) { skyRecordInto(skyBins(), brg, el, src, flag); }
+function sweepAuto(q, f, cx, cy, W, H) {
+  const v = sweep.source || $('cam'); const vw = v.videoWidth || v.width, vh = v.videoHeight || v.height; if (!vw) return;
+  const cols = 24, rows = 96;
+  const work = sweep.work || (sweep.work = document.createElement('canvas')); work.width = cols; work.height = rows;
+  const sc = Math.max(W / vw, H / vh), dw = vw * sc, dh = vh * sc, dx = (W - dw) / 2, dy = (H - dh) / 2;
+  const g2 = work.getContext('2d', { willReadFrequently: true });
+  try { g2.drawImage(v, (W / 4 - dx) / sc, (0 - dy) / sc, (W / 2) / sc, H / sc, 0, 0, cols, rows); } catch (e) { return; }
+  const rowsHit = skylineRows(g2.getImageData(0, 0, cols, rows).data, cols, rows);
+  sweep.lastPts = [];
+  for (let c = 0; c < cols; c++) {
+    const px = W / 4 + (c + 0.5) / cols * (W / 2), row = rowsHit[c];
+    let py, flag = null; if (row < 0) { py = H; flag = 'below'; } else { py = (row + 0.5) / rows * H; if (row === 0) flag = 'above'; }
+    const dir = qApply(q, [(px - cx) / f, (cy - py) / f, -1]);
+    skyRecord(bearingOf(dir[0], -dir[2]), Math.atan2(dir[1], Math.hypot(dir[0], dir[2])) / DEG, 'auto', flag);
+    if (row >= 0) sweep.lastPts.push([px, py]);
+  }
+}
+// AR 上に実測スカイライン（水色/赤）と許容仰角線（黄）を描く
+function drawSkyProfileAR(g, q, f, cx, cy, W, H) {
+  const qi = qConj(q), R = 300, e = +S.cfg.eyeH || 1.5;
+  const allowed = allowedAbs(), bins = S.skyline && S.skyline.bins;
+  const pt = (b, el) => { const v = qApply(qi, [R * Math.sin(b * DEG) * Math.cos(el * DEG), R * Math.sin(el * DEG), -R * Math.cos(b * DEG) * Math.cos(el * DEG)]); return -v[2] < 1 ? null : [cx + f * v[0] / -v[2], cy - f * v[1] / -v[2]]; };
+  g.lineWidth = 1.5; g.setLineDash([6, 4]); g.strokeStyle = 'rgba(245,181,68,.9)'; g.beginPath(); let pen = false;
+  for (let b = 0; b <= 360; b++) { const al = allowed[b % 360]; const p = isFinite(al) ? pt(b, al) : null; if (!p) { pen = false; continue; } pen ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1]); pen = true; }
+  g.stroke(); g.setLineDash([]);
+  if (!bins) return;
+  for (let b = 0; b < 360; b++) {
+    const s0 = bins[b], s1 = bins[(b + 1) % 360]; if (!s0 || !s1) continue;
+    const p0 = pt(b, s0.el), p1 = pt(b + 1, s1.el); if (!p0 || !p1) continue;
+    const bad = isFinite(allowed[b]) && s0.el > allowed[b];
+    g.strokeStyle = bad ? 'rgba(255,107,107,.95)' : 'rgba(34,211,238,.9)'; g.lineWidth = bad ? 3 : 2; g.beginPath(); g.moveTo(p0[0], p0[1]); g.lineTo(p1[0], p1[1]); g.stroke();
+  }
+}
+
+// ============================================================================
+// 経路検討: 許容仰角プロファイルと方位の自動提案
+// ============================================================================
+// ALLOWED BEGIN
+// 着陸帯中心から見た、方位（進入方位からの相対角, 右回り）ごとの許容仰角 [deg]。Infinity = 制限なし
+function relAllowedProfile(m, Dmin, eyeH) {
+  const out = new Float64Array(360);
+  for (let a = 0; a < 360; a++) {
+    const ca = Math.cos(a * DEG), sa = Math.sin(a * DEG); let best = Infinity;
+    for (let d = Dmin; d <= 650; d += 10) { const lim = limitAt(m, d * ca, d * sa).z; if (!isFinite(lim)) continue; const ang = Math.atan2(lim - eyeH, d) / DEG; if (ang < best) best = ang; }
+    out[a] = best;
+  }
+  return out;
+}
+function skyScore(bins, rel, heading) {
+  let viol = 0, cnt = 0, minMargin = Infinity;
+  for (let b = 0; b < 360; b++) { const s = bins[b]; if (!s) continue; const al = rel[((b - Math.round(heading)) % 360 + 360) % 360]; if (!isFinite(al)) continue; const ex = s.el - al; if (ex > 0) { viol += ex; cnt++; } if (-ex < minMargin) minMargin = -ex; }
+  return { viol, cnt, minMargin };
+}
+// ALLOWED END
+function relAllowedCached(m) {
+  const key = (+S.cfg.skyDmin || 50) + '|' + (+S.cfg.eyeH || 1.5);
+  if (m._allowedKey !== key) { m._allowed = relAllowedProfile(m, +S.cfg.skyDmin || 50, +S.cfg.eyeH || 1.5); m._allowedKey = key; }
+  return m._allowed;
+}
+function allowedAbs() { const rel = relAllowedCached(model), out = new Array(360), h = Math.round(S.cfg.heading); for (let b = 0; b < 360; b++) out[b] = rel[((b - h) % 360 + 360) % 360]; return out; }
+
+$('skyDmin').onchange = e => { S.cfg.skyDmin = Math.max(10, +e.target.value || 50); save(); renderRoute(); };
+function renderRoute() {
+  $('skyDmin').value = S.cfg.skyDmin; $('skyDminTxt').textContent = S.cfg.skyDmin;
+  const cov = skyCoverage(); $('skyCov').innerHTML = `${cov}<small>/360°</small>`; $('skyProg').style.width = (cov / 3.6) + '%';
+  const bins = S.skyline && S.skyline.bins, allowed = allowedAbs();
+  if (bins) { const sc = skyScore(bins, relAllowedCached(model), S.cfg.heading); $('skyViol').innerHTML = sc.cnt ? `<span class="up">${sc.cnt}°</span><small> 区間（超過計 ${sc.viol.toFixed(0)}°）</small>` : '<span class="down">なし</span>'; }
+  else $('skyViol').textContent = '—';
+  $('skyChart').innerHTML = skyChartSvg(bins, allowed); $('skyPolar').innerHTML = skyPolarSvg(bins, allowed);
+}
+function skyChartSvg(bins, allowed) {
+  const Wd = 520, Hd = 200, pad = { l: 30, r: 10, t: 14, b: 22 }, elMin = -10, elMax = 60;
+  const X = b => pad.l + b / 360 * (Wd - pad.l - pad.r), Y = el => pad.t + (elMax - Math.max(elMin, Math.min(elMax, el))) / (elMax - elMin) * (Hd - pad.t - pad.b);
+  let svg = `<svg class="fig" viewBox="0 0 ${Wd} ${Hd}" xmlns="http://www.w3.org/2000/svg">`;
+  for (const el of [0, 15, 30, 45, 60]) svg += `<line x1="${pad.l}" y1="${Y(el)}" x2="${Wd - pad.r}" y2="${Y(el)}" stroke="#2a3b55" stroke-dasharray="${el ? '2 3' : ''}"/>` + txt(pad.l - 3, Y(el) + 3, `${el}°`, '#64769b', 'end');
+  for (const b of [0, 90, 180, 270, 360]) svg += `<line x1="${X(b)}" y1="${pad.t}" x2="${X(b)}" y2="${Hd - pad.b}" stroke="#2a3b55"/>` + txt(X(b), Hd - 8, ['N', 'E', 'S', 'W', 'N'][b / 90], '#93a4c6', 'middle');
+  // 許容線
+  let d = '', pen = false;
+  for (let b = 0; b <= 360; b++) { const al = allowed[b % 360]; if (!isFinite(al)) { pen = false; continue; } d += `${pen ? 'L' : 'M'}${X(b).toFixed(1)},${Y(al).toFixed(1)} `; pen = true; }
+  svg += `<path d="${d}" fill="none" stroke="#f5b544" stroke-width="1.5"/>`;
+  if (bins) {
+    // 実測（塗り）と抵触（赤）
+    let area = '', bad = '';
+    for (let b = 0; b < 360; b++) { const s = bins[b]; if (!s) continue; const x0 = X(b), x1 = X(b + 1), y = Y(s.el), y0 = Y(elMin);
+      area += `M${x0.toFixed(1)},${y0.toFixed(1)}L${x0.toFixed(1)},${y.toFixed(1)}L${x1.toFixed(1)},${y.toFixed(1)}L${x1.toFixed(1)},${y0.toFixed(1)}Z`;
+      if (isFinite(allowed[b]) && s.el > allowed[b]) bad += `M${x0.toFixed(1)},${Y(allowed[b]).toFixed(1)}L${x0.toFixed(1)},${y.toFixed(1)}L${x1.toFixed(1)},${y.toFixed(1)}L${x1.toFixed(1)},${Y(allowed[b]).toFixed(1)}Z`; }
+    svg += `<path d="${area}" fill="#22d3ee" fill-opacity=".35"/><path d="${bad}" fill="#ff6b6b" fill-opacity=".85"/>`;
+  }
+  // 着陸側・離陸側の方位
+  const bL = (S.cfg.heading + 180) % 360, bT = takeoffHeading();
+  for (const [b, t, col] of [[bL, '着', KIND.apld.color], [bT, '離', KIND.apto.color]]) svg += `<line x1="${X(b)}" y1="${pad.t}" x2="${X(b)}" y2="${Hd - pad.b}" stroke="${col}" stroke-width="1.5"/>` + txt(X(b) + 3, pad.t + 10, t, col, 'start');
+  return svg + '</svg>';
+}
+function skyPolarSvg(bins, allowed) {
+  const Wd = 300, cx = 150, cy = 150, r0 = 18, r1 = 130, elMin = -5, elMax = 60;
+  const R = el => r0 + (Math.max(elMin, Math.min(elMax, el)) - elMin) / (elMax - elMin) * (r1 - r0);
+  const P = (b, el) => { const r = R(el); return [cx + r * Math.sin(b * DEG), cy - r * Math.cos(b * DEG)]; };
+  let svg = `<svg class="fig" viewBox="0 0 ${Wd} ${Wd}" xmlns="http://www.w3.org/2000/svg" style="max-width:320px;margin:0 auto">`;
+  for (const el of [0, 15, 30, 45, 60]) svg += `<circle cx="${cx}" cy="${cy}" r="${R(el)}" fill="none" stroke="#2a3b55" stroke-dasharray="${el ? '2 3' : ''}"/>` + txt(cx + 2, cy - R(el) + 9, `${el}°`, '#64769b', 'start');
+  for (const b of [0, 90, 180, 270]) { const [x, y] = P(b, elMax + 4); svg += `<line x1="${cx}" y1="${cy}" x2="${P(b, elMax)[0]}" y2="${P(b, elMax)[1]}" stroke="#2a3b55"/>` + txt(x, y + 3, 'NESW'[b / 90], '#93a4c6', 'middle'); }
+  if (bins) {
+    let area = '', bad = '';
+    for (let b = 0; b < 360; b++) { const s = bins[b]; if (!s) continue; const a = P(b, s.el), c = P(b + 1, s.el), i0 = P(b, elMin), i1 = P(b + 1, elMin);
+      area += `M${i0[0].toFixed(1)},${i0[1].toFixed(1)}L${a[0].toFixed(1)},${a[1].toFixed(1)}L${c[0].toFixed(1)},${c[1].toFixed(1)}L${i1[0].toFixed(1)},${i1[1].toFixed(1)}Z`;
+      if (isFinite(allowed[b]) && s.el > allowed[b]) { const q0 = P(b, allowed[b]), q1 = P(b + 1, allowed[b]); bad += `M${q0[0].toFixed(1)},${q0[1].toFixed(1)}L${a[0].toFixed(1)},${a[1].toFixed(1)}L${c[0].toFixed(1)},${c[1].toFixed(1)}L${q1[0].toFixed(1)},${q1[1].toFixed(1)}Z`; } }
+    svg += `<path d="${area}" fill="#22d3ee" fill-opacity=".35"/><path d="${bad}" fill="#ff6b6b" fill-opacity=".85"/>`;
+  }
+  let d = '', pen = false;
+  for (let b = 0; b <= 360; b++) { const al = allowed[b % 360]; if (!isFinite(al)) { pen = false; continue; } const p = P(b, al); d += `${pen ? 'L' : 'M'}${p[0].toFixed(1)},${p[1].toFixed(1)} `; pen = true; }
+  svg += `<path d="${d}" fill="none" stroke="#f5b544" stroke-width="1.5"/>`;
+  const bL = (S.cfg.heading + 180) % 360, bT = takeoffHeading();
+  for (const [b, t, col] of [[bL, '着', KIND.apld.color], [bT, '離', KIND.apto.color]]) { const p = P(b, elMax + 1), q = P(b, elMax + 9); svg += `<line x1="${cx}" y1="${cy}" x2="${p[0]}" y2="${p[1]}" stroke="${col}" stroke-width="1.5"/>` + txt(q[0], q[1] + 3, t, col, 'middle'); }
+  return svg + '</svg>';
+}
+$('bSkyPropose').onclick = () => proposeHeadings().catch(e => toast('提案に失敗: ' + e.message));
+async function proposeHeadings() {
+  const bins = S.skyline && S.skyline.bins; const out = $('skyProposals');
+  if (!bins || skyCoverage() < 60) { out.innerHTML = '<p class="note" style="color:var(--warn)">スカイラインの計測が足りません（60° 以上必要）。</p>'; return; }
+  const Dmin = +S.cfg.skyDmin || 50, eyeH = +S.cfg.eyeH || 1.5, cands = [];
+  for (let delta = -90; delta <= 90; delta += 10) {
+    out.innerHTML = `<p class="note">計算中… 離陸ずれ ${delta}°</p>`; await new Promise(r => setTimeout(r, 0));
+    const m = buildModel(Object.assign({}, S.cfg, { heading: 0, headingTo: delta === 0 ? null : delta }));
+    const rel = relAllowedProfile(m, Dmin, eyeH);
+    for (let h = 0; h < 360; h++) { const sc = skyScore(bins, rel, h); cands.push({ h, delta, viol: sc.viol, cnt: sc.cnt, margin: sc.minMargin }); }
+  }
+  // 抵触量 → 余裕（許容仰角−実測の最小値、大きいほど良い） → 直進優先
+  cands.sort((a, b) => (a.viol - b.viol) || (b.margin - a.margin) || (Math.abs(a.delta) - Math.abs(b.delta)));
+  const picks = [];
+  for (const c of cands) { if (picks.some(p => Math.abs(((p.h - c.h + 540) % 360) - 180) < 15 && p.delta === c.delta)) continue; picks.push(c); if (picks.length >= 5) break; }
+  const cov = skyCoverage();
+  out.innerHTML = `<p class="note">計測 ${cov}/360°。${cov < 300 ? '未計測の方位は評価に含まれないため、結果は参考です。' : ''}</p>` + picks.map((c, i) => {
+    const to = (c.h + c.delta + 360) % 360, ang = 180 - Math.abs(c.delta);
+    return `<div class="cand"><div><div class="t">${i + 1}. 進入 ${c.h}°（${dir8(c.h)}）／ 離陸 ${to}°（${dir8(to)}）<span class="tag ${c.cnt ? 'ng' : 'ok'}" style="margin-left:6px">${c.cnt ? `抵触 ${c.cnt}° 区間` : '抵触なし'}</span></div>
+      <div class="s">なす角 ${ang}°（${c.delta === 0 ? '直進' : c.delta > 0 ? '右へ ' + c.delta + '°' : '左へ ' + (-c.delta) + '°'}）${c.cnt ? `・超過合計 ${c.viol.toFixed(0)}°` : isFinite(c.margin) ? `・最小余裕 ${c.margin.toFixed(1)}°` : ''}</div></div>
+      <button class="btn sm pri" data-h="${c.h}" data-d="${c.delta}">採用</button></div>`; }).join('');
+  out.querySelectorAll('button[data-h]').forEach(b => b.onclick = () => {
+    const h = +b.dataset.h, dl = +b.dataset.d; S.cfg.heading = h; S.cfg.headingTo = dl === 0 ? null : (h + dl + 360) % 360;
+    model = buildModel(S.cfg); rejudgeAll(); save(); fillSettings(); renderRoute(); toast(`進入 ${h}° / 離陸 ${(h + dl + 360) % 360}° に設定しました`);
+  });
+}
 
 // ============================================================================
 // 起動
